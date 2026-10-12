@@ -17,21 +17,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Build with Gradle
         run: |
           if [ -f "build.gradle.kts" ]; then
-            gradle shadowJar
+            gradle shadowJar --no-daemon
           elif [ -f "waterdog-edubridge-plugin/build.gradle.kts" ]; then
             cd waterdog-edubridge-plugin
-            gradle shadowJar
+            gradle shadowJar --no-daemon
           else
             echo "Gradle build file not found!"
             exit 1
@@ -50,4 +52,4 @@ jobs:
           tag_name: v2.0.0-${{ github.run_number }}
           name: "EduBedrockProxy v2.0.0 (Custom Build)"
           files: ${{ steps.find_jar.outputs.jar_path }}
-          body: "Automated build featuring full RakNet Ping/Pong state machine and M365 Education validation."
+          body: "Automated build featuring full RakNet Ping/Pong state machine, NetherNet Session Broker, and M365 Education validation."

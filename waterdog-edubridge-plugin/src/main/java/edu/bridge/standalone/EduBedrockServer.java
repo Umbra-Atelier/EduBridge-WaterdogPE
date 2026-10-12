@@ -95,6 +95,7 @@ public final class EduBedrockServer {
         b.group(this.eventLoopGroup)
                 .channel(NioDatagramChannel.class)
                 .option(ChannelOption.SO_BROADCAST, true)
+                .option(ChannelOption.SO_REUSEADDR, true)
                 .handler(new ChannelInitializer<DatagramChannel>() {
                     @Override
                     protected void initChannel(DatagramChannel ch) {
@@ -128,7 +129,21 @@ public final class EduBedrockServer {
                 });
 
         InetSocketAddress bindAddress = new InetSocketAddress(config.getBindHost(), config.getBindPort());
-        this.serverChannel = b.bind(bindAddress).sync().channel();
+        try {
+            this.serverChannel = b.bind(bindAddress).sync().channel();
+        } catch (Exception bindEx) {
+            LOGGER.error("====================================================================");
+            LOGGER.error(" [EduBridge BIND ERROR] UDP Port {} is already occupied!", config.getBindPort());
+            LOGGER.error(" Probable causes & Quick fixes:");
+            LOGGER.error(" 1. Is PowerNukkitX running on port {}? (It defaults to {})", config.getBindPort(), config.getBindPort());
+            LOGGER.error("    -> In PowerNukkitX's server.properties, change 'server-port={}' to 'server-port={}'", config.getBindPort(), config.getDownstreamPort());
+            LOGGER.error(" 2. Another background Java process is still holding port {}.", config.getBindPort());
+            LOGGER.error("    -> Windows: run 'netstat -ano | findstr :{}' then 'taskkill /PID <PID> /F'", config.getBindPort());
+            LOGGER.error("    -> Windows: or stop background java with 'taskkill /IM java.exe /F'");
+            LOGGER.error("    -> Linux/Pi: run 'sudo fuser -k {}/udp'", config.getBindPort());
+            LOGGER.error("====================================================================");
+            throw bindEx;
+        }
 
         String activePictureCode = this.joinCodeService.getActivePictureJoinCode();
         LOGGER.info("====================================================================");

@@ -316,10 +316,15 @@ public final class EducationSessionBrokerService {
                     int interval = json.has("interval") ? json.get("interval").getAsInt() : 5;
 
                     LOGGER.info("====================================================================");
-                    LOGGER.info(" [M365 JOIN CODE REGISTRATION - /edu joincode add]");
+                    LOGGER.info(" [M365 JOIN CODE CLOUD DISCOVERY - /edu joincode add]");
                     LOGGER.info(" 1. Open browser: {}", verificationUri);
                     LOGGER.info(" 2. Enter code:   {}", userCode);
-                    LOGGER.info(" 3. Sign in with any M365 Education account for your school tenant.");
+                    LOGGER.info(" 3. Sign in with an official school-issued Microsoft 365 Education account.");
+                    LOGGER.info(" NOTE: Personal Microsoft accounts (@gmail, @outlook) will fail with AADSTS500011.");
+                    LOGGER.info(" NOTE: Device login is OPTIONAL! You can already connect locally right now using:");
+                    LOGGER.info("       • 18-Digit Connection ID: {}", this.connectionId);
+                    LOGGER.info("       • LAN Friends Tab:        'EduBedrock Classroom World' on port 19132");
+                    LOGGER.info("       • 4-Picture Join Code:    {}", normalizeToFourPictureSymbols(config.getActiveJoinCode()));
                     LOGGER.info("====================================================================");
 
                     pollDeviceCodeToken(tenant, deviceCode, interval, 0);
@@ -360,7 +365,11 @@ public final class EducationSessionBrokerService {
                         } else if (json.has("error") && "authorization_pending".equals(json.get("error").getAsString())) {
                             pollDeviceCodeToken(tenant, deviceCode, intervalSeconds, attempt + 1);
                         } else {
-                            LOGGER.warn("[EduSessionBroker] Device code polling ended: {}", res.body());
+                            String errDesc = json.has("error_description") ? json.get("error_description").getAsString() : res.body();
+                            LOGGER.warn("[EduSessionBroker] Device code polling notice: {}", errDesc);
+                            if (errDesc.contains("AADSTS500011")) {
+                                LOGGER.warn("[EduSessionBroker] AADSTS500011: School tenant requires Minecraft Education Enterprise App or personal account used. You can still play locally via Connection ID!");
+                            }
                         }
                     });
         }, intervalSeconds, TimeUnit.SECONDS);

@@ -109,6 +109,37 @@ hardware-tuning:
 `;
 }
 
+export function generatePowerNukkitXProperties(cfg: BridgeCustomConfig): string {
+  return `# ============================================================================
+# PowerNukkitX Server Properties (Backend World for EduBedrockProxy)
+# Place this in your PowerNukkitX root directory: server.properties
+# ============================================================================
+motd=PowerNukkitX Classroom World
+sub-motd=EduBridge Backend World
+server-port=${cfg.downstreamPort}
+server-ip=127.0.0.1
+view-distance=10
+white-list=false
+max-players=20
+spawn-protection=16
+gamemode=0
+force-gamemode=false
+hardcore=false
+pvp=true
+difficulty=1
+generator-settings=
+level-name=world
+level-seed=
+level-type=DEFAULT
+enable-query=true
+enable-rcon=false
+auto-save=true
+force-resources=false
+xbox-auth=false
+waterdogpe-support=true
+`;
+}
+
 export function buildRepoFiles(cfg: BridgeCustomConfig): RepoFile[] {
   return [
     {
@@ -505,6 +536,7 @@ public final class EduBedrockServer {
         b.group(this.eventLoopGroup)
                 .channel(NioDatagramChannel.class)
                 .option(ChannelOption.SO_BROADCAST, true)
+                .option(ChannelOption.SO_REUSEADDR, true)
                 .handler(new ChannelInitializer<DatagramChannel>() {
                     @Override
                     protected void initChannel(DatagramChannel ch) {
@@ -527,7 +559,12 @@ public final class EduBedrockServer {
                 });
 
         InetSocketAddress bindAddress = new InetSocketAddress(config.getBindHost(), config.getBindPort());
-        this.serverChannel = b.bind(bindAddress).sync().channel();
+        try {
+            this.serverChannel = b.bind(bindAddress).sync().channel();
+        } catch (Exception bindEx) {
+            LOGGER.error("[EduBridge] Port {} is already in use! Ensure PowerNukkitX is on port 19133 or kill any background java process.", config.getBindPort());
+            throw bindEx;
+        }
         LOGGER.info("[EduBridge] Active! NetherNet ID: {} | Join Code: {}", sessionBroker.getConnectionId(), config.getActiveJoinCode());
     }
 
@@ -839,6 +876,78 @@ tasks {
       language: 'yaml',
       description: 'Configuration for proxy-listener, downstream-pnx, m365-auth, and Microsoft Education Session Broker (4-picture Join Codes and NetherNet).',
       content: generatePluginConfigYaml(cfg)
+    },
+    {
+      id: 'pnx-server-properties',
+      path: 'powernukkitx/server.properties',
+      name: 'server.properties (PowerNukkitX)',
+      module: 'build-config',
+      language: 'properties',
+      description: 'Downstream PowerNukkitX world configuration setting server-port to 19133 and xbox-auth to false for proxy handoff.',
+      content: generatePowerNukkitXProperties(cfg)
+    },
+    {
+      id: 'github-workflow-build',
+      path: '.github/workflows/build.yml',
+      name: 'build.yml',
+      module: 'build-config',
+      language: 'yaml',
+      description: 'Automated GitHub Actions CI/CD release workflow using actions/setup-java@v5 and setup-gradle@v4.',
+      content: `name: Build and Release EduBedrockProxy
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Build with Gradle
+        run: |
+          if [ -f "build.gradle.kts" ]; then
+            gradle shadowJar --no-daemon
+          elif [ -f "waterdog-edubridge-plugin/build.gradle.kts" ]; then
+            cd waterdog-edubridge-plugin
+            gradle shadowJar --no-daemon
+          else
+            echo "Gradle build file not found!"
+            exit 1
+          fi
+
+      - name: Find Built Jar
+        id: find_jar
+        run: |
+          JAR_PATH=$(find . -name "EduBedrockProxy-*.jar" | head -n 1)
+          echo "jar_path=$JAR_PATH" >> $GITHUB_OUTPUT
+          echo "Found jar at: $JAR_PATH"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.0-\${{ github.run_number }}
+          name: "EduBedrockProxy v2.0.0 (Custom Build)"
+          files: \${{ steps.find_jar.outputs.jar_path }}
+          body: "Automated build featuring full RakNet Ping/Pong state machine, NetherNet Session Broker, and M365 Education validation."`
     }
   ];
 }

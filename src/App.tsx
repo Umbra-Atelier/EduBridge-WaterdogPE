@@ -21,7 +21,8 @@ import {
   Trash2,
   RefreshCw,
   Layers,
-  Zap
+  Zap,
+  Info
 } from 'lucide-react';
 import {
   DEFAULT_BRIDGE_CONFIG,
@@ -131,6 +132,8 @@ export default function App() {
   // Configurator new tenant input
   const [newTenantInput, setNewTenantInput] = useState<string>('');
   const [newDomainInput, setNewDomainInput] = useState<string>('');
+  // Configurator preview tab
+  const [configPreviewTab, setConfigPreviewTab] = useState<'config-yml' | 'pnx-server-properties'>('config-yml');
 
   const repoFiles = useMemo(() => buildRepoFiles(bridgeConfig), [bridgeConfig]);
 
@@ -988,22 +991,43 @@ java -javaagent:build/libs/EduBedrockProxy-2.0.0-CustomBuild.jar -jar WaterdogPE
               </div>
             </div>
 
-            {/* Live Generated config.yml Preview */}
+            {/* Live Generated Config & PowerNukkitX server.properties Preview */}
             <div className="lg:col-span-5 border border-[#1E293B] bg-[#111827] rounded-lg overflow-hidden flex flex-col">
-              <div className="px-4 py-3 border-b border-[#1E293B] flex items-center justify-between">
-                <span className="text-xs font-mono font-semibold text-[#F8FAFC]">
-                  Live config.yml Preview
-                </span>
+              <div className="px-4 py-2.5 border-b border-[#1E293B] flex items-center justify-between bg-[#0F172A]">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setConfigPreviewTab('config-yml')}
+                    className={`px-3 py-1.5 text-xs font-mono font-medium rounded transition-colors ${
+                      configPreviewTab === 'config-yml'
+                        ? 'bg-[#1E293B] text-[#38BDF8] border border-[#38BDF8]/30'
+                        : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+                    }`}
+                  >
+                    EduBedrockProxy config.yml
+                  </button>
+                  <button
+                    onClick={() => setConfigPreviewTab('pnx-server-properties')}
+                    className={`px-3 py-1.5 text-xs font-mono font-medium rounded transition-colors ${
+                      configPreviewTab === 'pnx-server-properties'
+                        ? 'bg-[#1E293B] text-[#10B981] border border-[#10B981]/30'
+                        : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+                    }`}
+                  >
+                    PowerNukkitX server.properties
+                  </button>
+                </div>
+
                 <button
-                  onClick={() =>
-                    handleCopy(
-                      repoFiles.find((f) => f.id === 'config-yml')?.content || '',
-                      'live-config'
-                    )
-                  }
+                  onClick={() => {
+                    const content =
+                      configPreviewTab === 'config-yml'
+                        ? repoFiles.find((f) => f.id === 'config-yml')?.content || ''
+                        : repoFiles.find((f) => f.id === 'pnx-server-properties')?.content || '';
+                    handleCopy(content, `live-${configPreviewTab}`);
+                  }}
                   className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-[#F8FAFC] bg-[#1E293B] hover:bg-[#334155] rounded cursor-pointer"
                 >
-                  {copiedId === 'live-config' ? (
+                  {copiedId === `live-${configPreviewTab}` ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-[#10B981]" />
                       Copied
@@ -1011,13 +1035,36 @@ java -javaagent:build/libs/EduBedrockProxy-2.0.0-CustomBuild.jar -jar WaterdogPE
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      Copy YAML
+                      Copy {configPreviewTab === 'config-yml' ? 'YAML' : 'Properties'}
                     </>
                   )}
                 </button>
               </div>
-              <pre className="p-4 text-xs font-mono text-[#E2E8F0] bg-[#0D131F] overflow-x-auto flex-1 leading-relaxed">
-                {repoFiles.find((f) => f.id === 'config-yml')?.content}
+
+              {/* Informative Guidance Callout for server.properties */}
+              {configPreviewTab === 'pnx-server-properties' && (
+                <div className="p-3 bg-[#0B0F17] border-b border-[#1E293B] text-xs">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-[#F59E0B] shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-[#94A3B8] space-y-1">
+                      <p className="font-semibold text-[#F59E0B]">
+                        Why is server.properties blank or not generated yet in PowerNukkitX?
+                      </p>
+                      <p>
+                        PowerNukkitX writes and flushes default configuration files to disk only when cleanly stopped using the <code className="text-[#38BDF8]">stop</code> command in its console. If you delete it and start the server, it holds settings in memory until shutdown.
+                      </p>
+                      <p>
+                        <strong className="text-[#F8FAFC]">Crucial Port Fix:</strong> PowerNukkitX defaults to <code className="text-[#EF4444]">port 19132</code>, which collides with EduBedrockProxy! You can manually create or overwrite <code className="text-[#10B981]">server.properties</code> in your <code className="text-[#E2E8F0]">NukkitServer</code> folder with the content below to shift PNX to <code className="text-[#10B981]">port 19133</code> and disable <code className="text-[#10B981]">xbox-auth</code>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <pre className="p-4 text-xs font-mono text-[#E2E8F0] bg-[#0D131F] overflow-x-auto flex-1 leading-relaxed max-h-[480px]">
+                {configPreviewTab === 'config-yml'
+                  ? repoFiles.find((f) => f.id === 'config-yml')?.content
+                  : repoFiles.find((f) => f.id === 'pnx-server-properties')?.content}
               </pre>
             </div>
           </div>
@@ -1190,18 +1237,26 @@ cd EduBridge-WaterdogPE/waterdog-edubridge-plugin
                   </div>
 
                   <div className="space-y-2">
-                    <div className="font-semibold text-[#F8FAFC]">Step 2: Start PowerNukkitX on Port 19133</div>
+                    <div className="font-semibold text-[#F8FAFC]">Step 2: Configure & Start PowerNukkitX on Port 19133</div>
                     <p className="text-[11px]">
-                      In your local PowerNukkitX directory, verify <code className="text-[#E2E8F0]">server.properties</code> has:
+                      In your local PowerNukkitX directory, create or edit <code className="text-[#E2E8F0]">server.properties</code> to move PNX to port 19133:
                     </p>
                     <pre className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#E2E8F0] overflow-x-auto">
-{`server-ip=127.0.0.1
+{`# server.properties (in NukkitServer folder)
+server-ip=127.0.0.1
 server-port=19133
-xbox-auth=false`}
+xbox-auth=false
+waterdogpe-support=true`}
                     </pre>
+                    <p className="text-[11px] text-[#94A3B8]">
+                      <strong className="text-[#F59E0B]">Note on blank/missing file:</strong> PowerNukkitX only writes <code className="text-[#E2E8F0]">server.properties</code> to disk when stopped cleanly with <code className="text-[#38BDF8]">stop</code>. If it is currently running on port 19132, type <code className="text-[#38BDF8]">stop</code> into its console, save <code className="text-[#E2E8F0]">server.properties</code> with <code className="text-[#10B981]">server-port=19133</code>, and launch it again:
+                    </p>
                     <pre className="p-2.5 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#10B981]">
-{`java -jar PowerNukkitX.jar`}
+{`java -Xms1G -Xmx3G -XX:+UseG1GC -jar PowerNukkitX.jar`}
                     </pre>
+                    <p className="text-[11px] text-[#64748B]">
+                      Confirm the console prints: <code className="text-[#10B981]">RakNet listening on udp/19133</code>.
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -1215,32 +1270,41 @@ xbox-auth=false`}
                   </div>
 
                   <div className="space-y-2">
-                    <div className="font-semibold text-[#F8FAFC]">Step 4: Authenticate School Tenant for Join Code (One-time)</div>
+                    <div className="font-semibold text-[#F8FAFC]">Step 4: (Optional) Cloud Discovery Sign-in & AADSTS500011 Guide</div>
                     <pre className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#F59E0B] overflow-x-auto">
-{`# In the proxy terminal prompt, type:
-edu joincode add 84c31ca0-ac3b-4eae-ad11-519d80233e6f
+{`# Optional: Only needed for WAN cloud signaling outside your home/LAN:
+edu joincode add
 
-# Console outputs:
-# 1. Open browser: https://microsoft.com/devicelogin
-# 2. Enter code:   C8KL-9PQ2
-# 3. Sign in with your school M365 account`}
+# Terminal outputs:
+# 1. Open browser: https://login.microsoft.com/device
+# 2. Enter code:   E83YJVHE5
+# 3. Sign in with your school-assigned Microsoft 365 Education account`}
                     </pre>
-                    <p className="text-[11px] text-[#64748B]">
-                      Once approved in browser, the proxy registers the code with Microsoft and begins 45-second discovery heartbeats.
-                    </p>
+                    <div className="p-3 bg-[#1C1917] border border-[#78350F] rounded text-[11px] space-y-1.5 text-[#FDE68A]">
+                      <div className="font-semibold flex items-center gap-1.5 text-[#FBBF24]">
+                        <Info className="w-3.5 h-3.5" />
+                        Troubleshooting AADSTS500011 ("Resource principal not found in tenant"):
+                      </div>
+                      <p className="text-[#FDE68A]/90">
+                        • <strong>Cause:</strong> You signed in with a personal Microsoft account (<code className="text-white">@gmail.com</code>, <code className="text-white">@outlook.com</code>) or an Azure tenant that has no Minecraft Education licenses. Personal accounts cannot access <code className="text-white">api.minecrafteduservices.com</code>.
+                      </p>
+                      <p className="text-[#FDE68A]/90">
+                        • <strong>Key Takeaway:</strong> You <strong>DO NOT</strong> need device login to join your server! The 18-digit NetherNet Connection ID and LAN discovery work independently of Microsoft cloud sign-in.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="font-semibold text-[#F8FAFC]">Step 5: Launch Minecraft: Education Edition to Test</div>
-                    <ul className="list-disc list-inside space-y-1.5 text-[11px]">
+                    <div className="font-semibold text-[#F8FAFC]">Step 5: Launch Minecraft: Education Edition & Join Directly</div>
+                    <ul className="list-disc list-inside space-y-2 text-[11px]">
                       <li>
-                        <strong className="text-[#38BDF8]">Option A (Join Code):</strong> Click <strong className="text-[#F8FAFC]">Play &rarr; Join World</strong>. Select the 4 picture symbols (<code className="text-[#E2E8F0]">BOOK, APPLE, PANDA, RAIL</code>) and click Join. Client resolves Microsoft broker &rarr; connects to proxy &rarr; PowerNukkitX loads student.
+                        <strong className="text-[#38BDF8]">Option 1 (Recommended — 18-Digit Connection ID):</strong> In Minecraft Education Edition, click <strong className="text-[#F8FAFC]">Play &rarr; Join World</strong>. Select the ID / Connection ID field and enter your 18-digit persistent ID (e.g. <code className="text-[#10B981] font-mono font-bold">224215661245789839</code>). This bypasses cloud broker checks and routes directly through the NetherNet proxy!
                       </li>
                       <li>
-                        <strong className="text-[#10B981]">Option B (LAN Discovery):</strong> Click <strong className="text-[#F8FAFC]">Play &rarr; Friends tab &rarr; LAN Games</strong>. You will see <code className="text-[#10B981]">EduBedrock Classroom World</code> appear automatically. Click to join.
+                        <strong className="text-[#10B981]">Option 2 (LAN Discovery / Friends Tab):</strong> Click <strong className="text-[#F8FAFC]">Play &rarr; Friends tab &rarr; LAN Games</strong>. Because EduBedrockProxy answers RakNet pings on port 19132, <code className="text-[#10B981]">EduBedrock Classroom World</code> appears directly on your local network. Click to connect.
                       </li>
                       <li>
-                        <strong className="text-[#A855F7]">Option C (Join Link):</strong> In browser or terminal, open the share link: <code className="text-[#38BDF8]">minecraftedu://join?code=BOOK-APPLE-PANDA-RAIL</code>.
+                        <strong className="text-[#A855F7]">Option 3 (4-Picture Join Code on LAN):</strong> Click <strong className="text-[#F8FAFC]">Play &rarr; Join World</strong>, enter the active 4 picture symbols shown in your proxy console (e.g. <code className="text-[#E2E8F0] font-mono">[Potion, Book, Cookie, Apple]</code>), and click Join.
                       </li>
                     </ul>
                   </div>
