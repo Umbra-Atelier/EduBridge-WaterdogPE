@@ -4,7 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.source.JWKSource;
-import com.nimbusds.jose.jwk.source.RemoteJWKSet;
+import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
 import com.nimbusds.jose.proc.JWSKeySelector;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -171,7 +171,7 @@ public final class M365TokenValidator {
         try {
             String uri = config.getJwksUriTemplate().replace("{tenant}", tenantId);
             DefaultResourceRetriever retriever = new DefaultResourceRetriever(2500, 2500, 512 * 1024);
-            return new RemoteJWKSet<>(URI.create(uri).toURL(), retriever);
+            return JWKSourceBuilder.create(URI.create(uri).toURL(), retriever).build();
         } catch (Exception e) {
             throw new IllegalStateException("Invalid JWKS URI for tenant " + tenantId, e);
         }

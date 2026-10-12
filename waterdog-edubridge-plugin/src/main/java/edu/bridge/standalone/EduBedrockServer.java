@@ -5,6 +5,7 @@ import edu.bridge.auth.M365TokenValidator;
 import edu.bridge.auth.XuidSynthesizer;
 import edu.bridge.config.EduBridgeConfig;
 import edu.bridge.joincode.ClassroomJoinCodeService;
+import edu.bridge.nethernet.EducationSessionBrokerService;
 import edu.bridge.raknet.RakNetConstants;
 import edu.bridge.raknet.RakNetPingManager;
 import edu.bridge.raknet.RakNetSessionRelay;
@@ -23,12 +24,14 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Netty UDP / RakNet Server Engine.
+ * Netty UDP / RakNet + Microsoft Education Session Broker & NetherNet Signaling Server Engine.
  *
- * Binds to 0.0.0.0:19132 and responds to:
- * 1. RakNet Unconnected Pings (0x01, 0x02) -> Replies with 0x1c Pong, eliminating "World doesn't exist"
- * 2. RakNet Connection Handshakes (0x05, 0x07) -> Relays to PowerNukkitX (:19133) and rewrites 0x08 client address
- * 3. Connected Game FrameSets -> Relays gameplay packets with M365 authentication
+ * Binds to 0.0.0.0:19132 and coordinates:
+ * 1. Microsoft Education Discovery API (`discovery.minecrafteduservices.com`) 4-Picture Join Code registration
+ * 2. Persistent 18-digit NetherNet Connection ID (`nethernet/connection-id.yml`) & WebSocket Signaling
+ * 3. RakNet Unconnected Pings (0x01, 0x02) -> Replies with 0x1c Pong, eliminating "World doesn't exist"
+ * 4. RakNet Connection Handshakes (0x05, 0x07) -> Relays to PowerNukkitX (:19133) and rewrites 0x08 client address
+ * 5. Connected Game FrameSets -> Relays gameplay packets with M365 authentication
  */
 public final class EduBedrockServer {
 
@@ -42,6 +45,8 @@ public final class EduBedrockServer {
 
     private RakNetPingManager pingManager;
     private RakNetSessionRelay sessionRelay;
+    private ClassroomJoinCodeService joinCodeService;
+    private EducationSessionBrokerService sessionBroker;
 
     public EduBedrockServer(EduBridgeConfig config) {
         this.config = config;
@@ -60,8 +65,8 @@ public final class EduBedrockServer {
             }
         });
 
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "EduBridge-PingPoller");
+        this.scheduler = Executors.newScheduledThreadPool(2, r -> {
+            Thread t = new Thread(r, "EduBridge-BrokerScheduler");
             t.setDaemon(true);
             return t;
         });
@@ -69,7 +74,11 @@ public final class EduBedrockServer {
         XuidSynthesizer xuidSynthesizer = new XuidSynthesizer(config.getXuidHashSalt());
         M365TokenValidator tokenValidator = new M365TokenValidator(config, xuidSynthesizer, this.authExecutor, LOGGER);
         BedrockChainSigner chainSigner = new BedrockChainSigner();
-        ClassroomJoinCodeService joinCodeService = new ClassroomJoinCodeService(config, LOGGER);
+        this.joinCodeService = new ClassroomJoinCodeService(config, LOGGER);
+
+        // Start Microsoft Education Session Broker & NetherNet Connection ID service
+        this.sessionBroker = new EducationSessionBrokerService(config, this.scheduler);
+        this.sessionBroker.start();
 
         this.eventLoopGroup = new NioEventLoopGroup(workerThreads);
 
@@ -78,7 +87,7 @@ public final class EduBedrockServer {
                 config,
                 tokenValidator,
                 chainSigner,
-                joinCodeService,
+                this.joinCodeService,
                 this.eventLoopGroup
         );
 
@@ -121,18 +130,33 @@ public final class EduBedrockServer {
         InetSocketAddress bindAddress = new InetSocketAddress(config.getBindHost(), config.getBindPort());
         this.serverChannel = b.bind(bindAddress).sync().channel();
 
+        String activePictureCode = this.joinCodeService.getActivePictureJoinCode();
         LOGGER.info("====================================================================");
-        LOGGER.info(" EduBedrockProxy Active (with Full RakNet State Machine)!");
-        LOGGER.info(" Listening on Bedrock Port: {}:{}", config.getBindHost(), config.getBindPort());
+        LOGGER.info(" EduBedrockProxy Active (RakNet + M:EE Session Broker + NetherNet)!");
+        LOGGER.info(" Listening on Bedrock Port: {}:{} (External: {})",
+                config.getBindHost(), config.getBindPort(), config.getExternalAddress());
         LOGGER.info(" Forwarding to PowerNukkitX: {}:{}", config.getDownstreamHost(), config.getDownstreamPort());
-        LOGGER.info(" RakNet Ping Response: ENABLED (Auto-syncs live MOTD from PowerNukkitX)");
+        LOGGER.info(" Persistent NetherNet Connection ID: {}", this.sessionBroker.getConnectionId());
+        LOGGER.info(" Active 4-Picture Join Code: {} (Indices: {})",
+                activePictureCode, EducationSessionBrokerService.symbolsToNumericPasscode(activePictureCode));
+        LOGGER.info(" Share Link: {}", this.sessionBroker.buildShareLink(activePictureCode));
         LOGGER.info(" Allowed M365 Tenants: {}", config.getAllowedTenantIds());
-        LOGGER.info(" Active Classroom Join Code: {}", config.getActiveJoinCode());
-        LOGGER.info(" Raspberry Pi 4 Worker Threads: {}", workerThreads);
+        LOGGER.info(" Tip: Type 'edu joincode add' to link an M365 account via Device Code");
         LOGGER.info("====================================================================");
     }
 
+    public EducationSessionBrokerService getSessionBroker() {
+        return sessionBroker;
+    }
+
+    public ClassroomJoinCodeService getJoinCodeService() {
+        return joinCodeService;
+    }
+
     public void stop() {
+        if (sessionBroker != null) {
+            sessionBroker.stop();
+        }
         if (serverChannel != null) {
             serverChannel.close();
         }

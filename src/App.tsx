@@ -851,8 +851,9 @@ java -javaagent:build/libs/EduBedrockProxy-2.0.0-CustomBuild.jar -jar WaterdogPE
               {/* Classroom Join Code & Downstream Port */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#1E293B]">
                 <div>
-                  <label className="block text-xs font-semibold text-[#F8FAFC] mb-1.5">
-                    Classroom Join Code Sequence
+                  <label className="block text-xs font-semibold text-[#F8FAFC] mb-1.5 flex items-center justify-between">
+                    <span>Classroom 4-Picture Join Code</span>
+                    <span className="text-[10px] text-[#38BDF8] font-normal">Official M:EE Symbol Sequence</span>
                   </label>
                   <input
                     type="text"
@@ -860,8 +861,42 @@ java -javaagent:build/libs/EduBedrockProxy-2.0.0-CustomBuild.jar -jar WaterdogPE
                     onChange={(e) =>
                       setBridgeConfig({ ...bridgeConfig, activeJoinCode: e.target.value })
                     }
+                    placeholder="BOOK-APPLE-PANDA-RAIL"
                     className="w-full px-3 py-2 text-xs font-mono bg-[#0B0F17] border border-[#1E293B] rounded text-[#F8FAFC]"
                   />
+                  {/* 4 Picture Slots Preview */}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    {bridgeConfig.activeJoinCode.split(/[- ]+/).filter(Boolean).slice(0, 4).map((symbol, idx) => {
+                      const symUpper = symbol.toUpperCase();
+                      const emoji =
+                        symUpper === 'BOOK' ? '📖' :
+                        symUpper === 'APPLE' ? '🍎' :
+                        symUpper === 'PANDA' ? '🐼' :
+                        symUpper === 'RAIL' ? '🛤️' :
+                        symUpper === 'BALLOON' ? '🎈' :
+                        symUpper === 'COOKIE' ? '🍪' :
+                        symUpper === 'FISH' ? '🐟' :
+                        symUpper === 'CAKE' ? '🎂' :
+                        symUpper === 'PICKAXE' ? '⛏️' :
+                        symUpper === 'SWORD' ? '⚔️' :
+                        symUpper === 'POTION' ? '🧪' :
+                        symUpper === 'BUCKET' ? '🪣' :
+                        symUpper === 'MAP' ? '🗺️' :
+                        symUpper === 'COMPASS' ? '🧭' :
+                        symUpper === 'QUILL' ? '🪶' :
+                        symUpper === 'AGENT' ? '🤖' : '🎮';
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-1 px-2 py-1 bg-[#0D131F] border border-[#38BDF8]/40 rounded text-[11px] font-mono text-[#F8FAFC]"
+                          title={`Picture Slot ${idx + 1}: ${symUpper}`}
+                        >
+                          <span>{emoji}</span>
+                          <span className="text-[10px] text-[#38BDF8] font-semibold">{symUpper}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
@@ -1064,10 +1099,170 @@ java -javaagent:build/libs/EduBedrockProxy-2.0.0-CustomBuild.jar -jar WaterdogPE
                 </pre>
               </div>
 
+              {/* Critical Architectural Notice: No 'Add Server' Button in M:EE */}
+              <div className="mt-6 p-5 rounded-lg border border-[#F59E0B]/40 bg-[#0B0F17]">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#F59E0B] mb-2">
+                  <AlertTriangle className="w-4 h-4 text-[#F59E0B]" />
+                  Minecraft Education Edition Joining Limitation (No "Add Server" Button)
+                </div>
+                <p className="text-xs text-[#94A3B8] leading-relaxed mb-3">
+                  Unlike retail Minecraft Bedrock, <strong className="text-[#F8FAFC]">Minecraft: Education Edition completely removes the custom server list and &ldquo;Add Server&rdquo; button</strong> for school compliance. Students cannot type in an IP and port. They can strictly connect through three native mechanisms:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="p-3 bg-[#0D131F] border border-[#1E293B] rounded">
+                    <span className="font-semibold text-[#38BDF8] block mb-1">1. 4-Picture Join Code</span>
+                    <span className="text-[#94A3B8]">
+                      Click <strong className="text-[#E2E8F0]">Join World</strong> and select 4 pictures (e.g. 📖 Book, 🍎 Apple, 🐼 Panda, 🛤️ Rail). Queried via Microsoft&apos;s cloud session broker.
+                    </span>
+                  </div>
+                  <div className="p-3 bg-[#0D131F] border border-[#1E293B] rounded">
+                    <span className="font-semibold text-[#10B981] block mb-1">2. NetherNet / Share Link</span>
+                    <span className="text-[#94A3B8]">
+                      Persistent 18-digit Connection ID or URI (<code className="text-[#10B981]">minecraftedu://join?code=...</code>). Resolved via NetherNet signaling.
+                    </span>
+                  </div>
+                  <div className="p-3 bg-[#0D131F] border border-[#1E293B] rounded">
+                    <span className="font-semibold text-[#A855F7] block mb-1">3. LAN Games (Friends Tab)</span>
+                    <span className="text-[#94A3B8]">
+                      Auto-discovered when client & proxy are on the same local Wi-Fi or subnet. Handled by our built-in RakNet Education Edition ping broadcaster.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Microsoft Device Login Explanation Card */}
+              <div className="mt-6 p-5 rounded-lg border border-[#38BDF8]/40 bg-[#0B0F17]">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#38BDF8] mb-2">
+                  <KeyRound className="w-4 h-4 text-[#38BDF8]" />
+                  What Publishing to Microsoft Device Login Does & When to Run It
+                </div>
+                <div className="text-xs text-[#94A3B8] space-y-3 leading-relaxed">
+                  <p>
+                    When you run <code className="text-[#10B981] font-mono">edu joincode add [tenant]</code> on the proxy, it initiates Microsoft Azure AD&apos;s Device Code flow using the official Minecraft Education Client ID (<code className="text-[#38BDF8]">b36b1432-1a1c-4c82-9b76-24de1cab42f2</code>):
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1.5 pl-1 text-[11px]">
+                    <li>
+                      <strong className="text-[#F8FAFC]">What it does:</strong> It gives you an 8-character code and asks you to open <code className="text-[#38BDF8]">https://microsoft.com/devicelogin</code>. You sign in once with any M365 school account from your tenant (teacher or student account).
+                    </li>
+                    <li>
+                      <strong className="text-[#F8FAFC]">Token Registration:</strong> The proxy receives an M365 Bearer token and registers your server&apos;s IP, port, and NetherNet ID with Microsoft&apos;s Education Session Broker (<code className="text-[#E2E8F0]">https://discovery.minecrafteduservices.com/api/v1.0/sessions/register</code>).
+                    </li>
+                    <li>
+                      <strong className="text-[#F8FAFC]">Persistent Caching:</strong> The session token is saved locally to <code className="text-[#E2E8F0]">extensions/edu/sessions_joincode.yml</code>. It automatically refreshes, so you only have to do this once.
+                    </li>
+                  </ol>
+
+                  <div className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-xs space-y-1.5">
+                    <div className="font-semibold text-[#F8FAFC]">
+                      Should this be done before I join for the first time?
+                    </div>
+                    <p className="text-[11px] text-[#CBD5E1]">
+                      • <strong className="text-[#10B981]">For 4-Picture Join Codes: YES.</strong> When students enter 4 pictures in the &ldquo;Join World&rdquo; screen, their client asks Microsoft&apos;s cloud: <em>&ldquo;Who is hosting this join code in our school tenant?&rdquo;</em> If you haven&apos;t done the device login, Microsoft has no record of your server, and the client displays <span className="text-[#EF4444] font-semibold">&ldquo;No world active with that join code&rdquo;</span>.
+                    </p>
+                    <p className="text-[11px] text-[#CBD5E1]">
+                      • <strong className="text-[#38BDF8]">For Local LAN Testing: NO (Optional).</strong> If your computer/iPad running Minecraft Education is on the same local Wi-Fi or router as your PC/Pi, the proxy&apos;s RakNet beacon appears automatically under the <strong className="text-[#F8FAFC]">Friends &rarr; LAN Games</strong> tab without needing Microsoft&apos;s cloud.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Local Computer Testing Guide */}
+              <div className="mt-6 p-5 rounded-lg border border-[#10B981]/40 bg-[#0B0F17]">
+                <h3 className="text-sm font-semibold text-[#10B981] mb-3 flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-[#10B981]" />
+                  How to Test Seamlessly on Your Computer (Before Running on Raspberry Pi 4)
+                </h3>
+                <div className="text-xs text-[#94A3B8] space-y-4 leading-relaxed">
+                  <p>
+                    Testing on your Windows/Mac/Linux computer first lets you verify both the NetherNet session and PowerNukkitX handshake in seconds without Raspberry Pi transfer overhead:
+                  </p>
+
+                  <div className="space-y-2">
+                    <div className="font-semibold text-[#F8FAFC]">Step 1: Build the Standalone JAR Locally</div>
+                    <pre className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#38BDF8] overflow-x-auto">
+{`git clone https://github.com/Umbra-Atelier/EduBridge-WaterdogPE.git
+cd EduBridge-WaterdogPE/waterdog-edubridge-plugin
+./gradlew shadowJar`}
+                    </pre>
+                    <p className="text-[11px] text-[#64748B]">
+                      Compiles <code className="text-[#10B981]">build/libs/EduBedrockProxy-2.0.0-CustomBuild.jar</code> cleanly with zero missing class errors.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="font-semibold text-[#F8FAFC]">Step 2: Start PowerNukkitX on Port 19133</div>
+                    <p className="text-[11px]">
+                      In your local PowerNukkitX directory, verify <code className="text-[#E2E8F0]">server.properties</code> has:
+                    </p>
+                    <pre className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#E2E8F0] overflow-x-auto">
+{`server-ip=127.0.0.1
+server-port=19133
+xbox-auth=false`}
+                    </pre>
+                    <pre className="p-2.5 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#10B981]">
+{`java -jar PowerNukkitX.jar`}
+                    </pre>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="font-semibold text-[#F8FAFC]">Step 3: Start EduBedrockProxy on Port 19132</div>
+                    <pre className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#38BDF8] overflow-x-auto">
+{`java -jar build/libs/EduBedrockProxy-2.0.0-CustomBuild.jar`}
+                    </pre>
+                    <p className="text-[11px] text-[#64748B]">
+                      The proxy logs show active NetherNet ID, RakNet listener on 0.0.0.0:19132, and forwarding target 127.0.0.1:19133.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="font-semibold text-[#F8FAFC]">Step 4: Authenticate School Tenant for Join Code (One-time)</div>
+                    <pre className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#F59E0B] overflow-x-auto">
+{`# In the proxy terminal prompt, type:
+edu joincode add 84c31ca0-ac3b-4eae-ad11-519d80233e6f
+
+# Console outputs:
+# 1. Open browser: https://microsoft.com/devicelogin
+# 2. Enter code:   C8KL-9PQ2
+# 3. Sign in with your school M365 account`}
+                    </pre>
+                    <p className="text-[11px] text-[#64748B]">
+                      Once approved in browser, the proxy registers the code with Microsoft and begins 45-second discovery heartbeats.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="font-semibold text-[#F8FAFC]">Step 5: Launch Minecraft: Education Edition to Test</div>
+                    <ul className="list-disc list-inside space-y-1.5 text-[11px]">
+                      <li>
+                        <strong className="text-[#38BDF8]">Option A (Join Code):</strong> Click <strong className="text-[#F8FAFC]">Play &rarr; Join World</strong>. Select the 4 picture symbols (<code className="text-[#E2E8F0]">BOOK, APPLE, PANDA, RAIL</code>) and click Join. Client resolves Microsoft broker &rarr; connects to proxy &rarr; PowerNukkitX loads student.
+                      </li>
+                      <li>
+                        <strong className="text-[#10B981]">Option B (LAN Discovery):</strong> Click <strong className="text-[#F8FAFC]">Play &rarr; Friends tab &rarr; LAN Games</strong>. You will see <code className="text-[#10B981]">EduBedrock Classroom World</code> appear automatically. Click to join.
+                      </li>
+                      <li>
+                        <strong className="text-[#A855F7]">Option C (Join Link):</strong> In browser or terminal, open the share link: <code className="text-[#38BDF8]">minecraftedu://join?code=BOOK-APPLE-PANDA-RAIL</code>.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-[#1E293B]">
+                    <div className="font-semibold text-[#F8FAFC]">Step 6: Transfer to Raspberry Pi 4</div>
+                    <p className="text-[11px]">
+                      Once verified on your PC, transfer the jar and config to your Pi:
+                    </p>
+                    <pre className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#38BDF8] overflow-x-auto">
+{`# Copy from your PC to Raspberry Pi:
+scp build/libs/EduBedrockProxy-2.0.0-CustomBuild.jar umbra@umbra-raspberry-pi:~/EduBedrockProxy/
+scp extensions/edu/sessions_joincode.yml umbra@umbra-raspberry-pi:~/EduBedrockProxy/extensions/edu/`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
               {/* Deployment Instructions */}
               <div className="mt-6 p-5 rounded-lg border border-[#1E293B] bg-[#0B0F17]">
                 <h3 className="text-sm font-semibold text-[#F8FAFC] mb-3">
-                  Step-by-Step GitHub Sync & Deployment
+                  Step-by-Step GitHub Sync & Raspberry Pi 4 Deployment
                 </h3>
                 <ol className="text-xs text-[#94A3B8] space-y-3 list-decimal list-inside">
                   <li>

@@ -6,6 +6,9 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.util.*;
 
 /**
@@ -15,6 +18,10 @@ public final class EduBridgeConfig {
 
     private final String bindHost;
     private final int bindPort;
+    private final String externalAddress;
+    private final String worldName;
+    private final String hostName;
+    private final String netherNetConnectionId;
 
     private final String downstreamHost;
     private final int downstreamPort;
@@ -36,6 +43,10 @@ public final class EduBridgeConfig {
     public EduBridgeConfig(
             String bindHost,
             int bindPort,
+            String externalAddress,
+            String worldName,
+            String hostName,
+            String netherNetConnectionId,
             String downstreamHost,
             int downstreamPort,
             boolean verifyJwtSignature,
@@ -52,6 +63,10 @@ public final class EduBridgeConfig {
     ) {
         this.bindHost = bindHost;
         this.bindPort = bindPort;
+        this.externalAddress = externalAddress;
+        this.worldName = worldName;
+        this.hostName = hostName;
+        this.netherNetConnectionId = netherNetConnectionId;
         this.downstreamHost = downstreamHost;
         this.downstreamPort = downstreamPort;
         this.verifyJwtSignature = verifyJwtSignature;
@@ -91,9 +106,18 @@ public final class EduBridgeConfig {
             Map<String, Object> joinCode = (Map<String, Object>) root.getOrDefault("classroom-join-code", Collections.emptyMap());
             Map<String, Object> hw = (Map<String, Object>) root.getOrDefault("hardware-tuning", Collections.emptyMap());
 
+            String extIp = String.valueOf(proxy.getOrDefault("external-address", "AUTO"));
+            if ("AUTO".equalsIgnoreCase(extIp) || extIp.isBlank()) {
+                extIp = detectLocalLanAddress();
+            }
+
             return new EduBridgeConfig(
                     (String) proxy.getOrDefault("host", "0.0.0.0"),
                     ((Number) proxy.getOrDefault("port", 19132)).intValue(),
+                    extIp,
+                    (String) joinCode.getOrDefault("world-name", "Oakridge School Classroom"),
+                    (String) joinCode.getOrDefault("host-name", "RaspberryPi4-EduProxy"),
+                    String.valueOf(joinCode.getOrDefault("nethernet-connection-id", "AUTO")),
                     (String) pnx.getOrDefault("host", "127.0.0.1"),
                     ((Number) pnx.getOrDefault("port", 19133)).intValue(),
                     (Boolean) m365.getOrDefault("verify-jwt-signature", true),
@@ -120,6 +144,10 @@ public final class EduBridgeConfig {
         return new EduBridgeConfig(
                 "0.0.0.0",
                 19132,
+                detectLocalLanAddress(),
+                "Oakridge School Classroom",
+                "RaspberryPi4-EduProxy",
+                "AUTO",
                 "127.0.0.1",
                 19133,
                 true,
@@ -136,8 +164,31 @@ public final class EduBridgeConfig {
         );
     }
 
+    private static String detectLocalLanAddress() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp()) continue;
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return "127.0.0.1";
+    }
+
     public String getBindHost() { return bindHost; }
     public int getBindPort() { return bindPort; }
+    public String getExternalAddress() { return externalAddress; }
+    public String getWorldName() { return worldName; }
+    public String getHostName() { return hostName; }
+    public String getNetherNetConnectionId() { return netherNetConnectionId; }
     public String getDownstreamHost() { return downstreamHost; }
     public int getDownstreamPort() { return downstreamPort; }
     public boolean isVerifyJwtSignature() { return verifyJwtSignature; }

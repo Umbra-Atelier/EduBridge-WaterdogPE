@@ -1,12 +1,14 @@
 # ============================================================================
 # EduBedrockProxy Configuration (Raspberry Pi 4 Native Stack)
-# Bridges Minecraft: Education Edition (M365 Entra ID) -> PowerNukkitX (:19133)
+# Bridges Minecraft: Education Edition (M365 Entra ID + NetherNet) -> PowerNukkitX (:19133)
 # ============================================================================
 
-# 1. Front-facing Bedrock / RakNet Proxy Listener (Port 19132)
+# 1. Front-facing Bedrock / RakNet & NetherNet Proxy Listener (Port 19132)
 proxy-listener:
   host: "0.0.0.0"
   port: 19132
+  # Set to AUTO to detect Raspberry Pi LAN IP, or set your public/school IP
+  external-address: "AUTO"
   motd: "§bOakridge School §7- §aMinecraft Education Edition"
   sub_motd: "§fM365 Authenticated Classroom Server"
 
@@ -33,10 +35,18 @@ m365-auth:
   allow-hybrid-retail-xbox: true
   xuid-hash-salt: "edubridge-rpi4-pnx-salt-2026"
 
-# 4. Classroom Join Code Gatekeeper (Replaces EduGeyser Join Codes)
+# 4. Microsoft Education Session Broker, 4-Picture Join Code & NetherNet Connection ID
+#    Replaces EduGeyser's Geyser-Education-Extension without needing a Java Server!
 classroom-join-code:
   enabled: true
+  # 4-Picture Join Code using official M:EE symbols:
+  # BOOK, QUILL, BALLOON, RAIL, ALEX, STEVE, APPLE, COOKIE, FISH,
+  # CAKE, PICKAXE, SWORD, POTION, BUCKET, MAP, COMPASS, PANDA, AGENT
   active-code: "BOOK-APPLE-PANDA-RAIL"
+  # Persistent 18-digit NetherNet Connection ID (saved in nethernet/connection-id.yml)
+  nethernet-connection-id: "AUTO"
+  world-name: "Oakridge School Classroom"
+  host-name: "RaspberryPi4-EduProxy"
   session-ttl-minutes: 180
 
 # 5. Raspberry Pi 4 (ARM64 Cortex-A72) Performance Tuning

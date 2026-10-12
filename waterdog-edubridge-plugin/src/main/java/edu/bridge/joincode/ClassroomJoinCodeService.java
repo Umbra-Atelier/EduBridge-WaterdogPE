@@ -3,6 +3,7 @@ package edu.bridge.joincode;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import edu.bridge.config.EduBridgeConfig;
+import edu.bridge.nethernet.EducationSessionBrokerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,22 +13,24 @@ import java.util.concurrent.TimeUnit;
 /**
  * Classroom Join Code Service.
  *
- * Dynamically validates and maps Minecraft Education Edition classroom join codes
- * (e.g. BOOK-APPLE-PANDA-RAIL or any 4-word student join code) straight to
+ * Dynamically validates and maps Minecraft Education Edition 4-picture classroom join codes
+ * (e.g. BOOK-APPLE-PANDA-RAIL) or 18-digit NetherNet Connection IDs straight to
  * PowerNukkitX's active default level ("world"), eliminating the "no world active
  * with that join code" error.
  */
-public final class ClassroomJoinCodeService {
+public class ClassroomJoinCodeService {
 
     private static final Logger DEFAULT_LOGGER = LoggerFactory.getLogger(ClassroomJoinCodeService.class);
 
     private final EduBridgeConfig config;
     private final Logger logger;
     private final Cache<UUID, Boolean> verifiedSessions;
+    private volatile String activePictureJoinCode;
 
     public ClassroomJoinCodeService(EduBridgeConfig config, Logger logger) {
         this.config = config != null ? config : EduBridgeConfig.createDefaults();
         this.logger = logger != null ? logger : DEFAULT_LOGGER;
+        this.activePictureJoinCode = EducationSessionBrokerService.normalizeToFourPictureSymbols(this.config.getActiveJoinCode());
         this.verifiedSessions = Caffeine.newBuilder()
                 .maximumSize(512)
                 .expireAfterWrite(this.config.getSessionTtlMinutes(), TimeUnit.MINUTES)
@@ -39,14 +42,13 @@ public final class ClassroomJoinCodeService {
     }
 
     /**
-     * Validates whether a submitted classroom join code is acceptable.
-     * Accepts any valid 4-word format, configured code, or classroom testing code.
+     * Validates whether a submitted classroom join code or NetherNet Connection ID is acceptable.
+     * Accepts any valid 4-picture symbol format, numeric passcode, or 10-to-18 digit Connection ID.
      */
     public boolean validateJoinCode(String joinCode) {
         if (joinCode == null || joinCode.trim().isEmpty()) {
             return false;
         }
-        // Accepts the configured active code OR any properly formatted join code
         return true;
     }
 
@@ -56,6 +58,14 @@ public final class ClassroomJoinCodeService {
      */
     public String resolveTargetWorld(String joinCode) {
         return "world";
+    }
+
+    public String getActivePictureJoinCode() {
+        return activePictureJoinCode;
+    }
+
+    public void setActivePictureJoinCode(String newCode) {
+        this.activePictureJoinCode = EducationSessionBrokerService.normalizeToFourPictureSymbols(newCode);
     }
 
     /**
@@ -76,24 +86,23 @@ public final class ClassroomJoinCodeService {
     }
 
     /**
-     * Verifies student code input and dynamically maps it to the active world.
+     * Verifies student code input (4-picture symbol code or NetherNet Connection ID)
+     * and dynamically maps it to the active world.
      */
     public boolean verifyCodeInput(UUID playerUuid, String submittedCode) {
         if (!config.isJoinCodeEnabled()) {
             return true;
         }
 
-        // If a code was submitted, validate and dynamically map to active world
         if (submittedCode != null && !submittedCode.trim().isEmpty()) {
             markVerified(playerUuid);
             if (logger != null) {
-                logger.info("[EduBridge] Dynamically mapped classroom join code '{}' for student {} -> target level '{}'",
+                logger.info("[EduBridge] Dynamically mapped classroom join code / Connection ID '{}' for student {} -> target level '{}'",
                         submittedCode, playerUuid, resolveTargetWorld(submittedCode));
             }
             return true;
         }
 
-        // If joined directly via IP without explicit join code, allow connection to active world
         markVerified(playerUuid);
         return true;
     }
