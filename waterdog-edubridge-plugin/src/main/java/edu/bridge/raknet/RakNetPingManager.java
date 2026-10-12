@@ -118,7 +118,7 @@ public final class RakNetPingManager {
      */
     public String buildMotdString() {
         return String.format(
-                "MCPE;§bOakridge School §7[§aM365 Edu§7];%d;%s;%d;%d;%d;§fClassroom Server;Survival;1;%d;%d;",
+                "MCPE;§bOakridge School §7[§aM365 Edu§7];%d;%s;%d;%d;%d;world;Survival;1;%d;%d;",
                 backendProtocolVersion.get(),
                 backendVersionName.get(),
                 onlinePlayerCount.get(),
