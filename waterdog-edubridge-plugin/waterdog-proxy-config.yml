@@ -1,0 +1,35 @@
+# ============================================================================
+# WaterdogPE Proxy Configuration (Raspberry Pi 4 - Port 19132)
+# Paired with EduBridge Plugin -> PowerNukkitX Backend (Port 19133)
+# ============================================================================
+
+listener:
+  host: 0.0.0.0:19132
+  max_players: 40
+  motd: "§bOakridge School §7- §aMinecraft Education Edition"
+  sub_motd: "§fM365 Authenticated Classroom Server"
+  forced_host: "lobby"
+
+# CRITICAL FOR M365 EDUCATION EDITION INTERCEPTION:
+# Set online_mode: false so WaterdogPE does not immediately drop Education Edition
+# clients whose JWT chain is signed by Microsoft 365 Entra ID instead of Mojang's
+# retail Xbox Live root key. The EduBridge plugin's PreClientDataSetEvent listener
+# cryptographically enforces M365 OIDC/JWKS verification before login completes!
+online_mode: false
+
+# MUST BE TRUE: Enables WaterdogPE to sign and forward extraData & clientData JWTs
+# (containing m365_tenant_id, m365_upn, edu_role, and synthesized XUID) to PowerNukkitX.
+use_login_extras: true
+
+# Forward client IP to local PowerNukkitX loopback
+ip_forward: true
+prefer_fast_transfer: true
+enable_edu_features: true
+pack_cache_size: 16
+default_idle_threads: 2
+
+servers:
+  lobby:
+    address: 127.0.0.1:19133
+    public_address: 127.0.0.1:19133
+    server_type: bedrock

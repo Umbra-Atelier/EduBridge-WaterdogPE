@@ -1,0 +1,5 @@
+name: "EduBridge"
+main: "edu.waterdog.bridge.EduBridgePlugin"
+version: "${version}"
+author: "EduBridge Systems Engineering"
+description: "Bridges Microsoft 365 Education Edition client authentication and classroom Join Codes natively into WaterdogPE and PowerNukkitX (port 19133)"
