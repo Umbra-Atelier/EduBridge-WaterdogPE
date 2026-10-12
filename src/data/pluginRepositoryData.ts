@@ -3,7 +3,7 @@ export interface RepoFile {
   path: string;
   name: string;
   module: 'proxy-core' | 'nethernet' | 'raknet' | 'protocol' | 'auth' | 'agent' | 'pnx-companion' | 'build-config';
-  language: 'kotlin' | 'java' | 'yaml';
+  language: 'kotlin' | 'java' | 'yaml' | 'properties';
   description: string;
   content: string;
 }
@@ -223,6 +223,12 @@ public final class EducationSessionBrokerService {
         connectNetherNetSignaling();
     }
 
+    private String playfabCustomId;
+    private String playfabDeviceId;
+    private String pmsgId;
+    private String fullConnectionId;
+    private String formattedConnectionId;
+
     private void loadOrCreateConnectionId() {
         File dir = new File("nethernet");
         if (!dir.exists()) dir.mkdirs();
@@ -235,23 +241,48 @@ public final class EducationSessionBrokerService {
                 if (data != null && data.containsKey("connection-id")) {
                     this.connectionId = String.valueOf(data.get("connection-id"));
                     this.signalingAccountIdentity = String.valueOf(data.getOrDefault("signaling-identity", "edubridge-rpi4-host"));
+                    this.playfabCustomId = (String) data.get("playfab-custom-id");
+                    this.playfabDeviceId = (String) data.get("playfab-device-id");
                     LOGGER.info("[NetherNet] Loaded persistent Connection ID from nethernet/connection-id.yml: {}", this.connectionId);
-                    return;
                 }
             } catch (Exception ignored) {}
         }
 
-        String configuredId = config.getNetherNetConnectionId();
-        if (configuredId != null && !configuredId.isBlank() && !"AUTO".equalsIgnoreCase(configuredId)) {
-            this.connectionId = configuredId.trim();
-        } else {
-            SecureRandom random = new SecureRandom();
-            long raw = Math.abs(random.nextLong());
-            this.connectionId = String.format("%018d", (raw % 900000000000000000L) + 100000000000000000L);
+        if (this.playfabCustomId == null || this.playfabCustomId.isBlank()) {
+            this.playfabCustomId = "MCPF" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
         }
-        this.signalingAccountIdentity = "edubridge-rpi4-" + this.connectionId.substring(0, 6);
+        if (this.playfabDeviceId == null || this.playfabDeviceId.isBlank()) {
+            this.playfabDeviceId = UUID.randomUUID().toString().replace("-", "").toLowerCase();
+        }
+
+        if (this.connectionId == null) {
+            String configuredId = config.getNetherNetConnectionId();
+            if (configuredId != null && !configuredId.isBlank() && !"AUTO".equalsIgnoreCase(configuredId)) {
+                this.connectionId = configuredId.trim();
+            } else {
+                SecureRandom random = new SecureRandom();
+                long raw = Math.abs(random.nextLong());
+                this.connectionId = String.format("%018d", (raw % 900000000000000000L) + 100000000000000000L);
+            }
+            this.signalingAccountIdentity = "edubridge-rpi4-" + this.connectionId.substring(0, 6);
+        }
+
+        this.pmsgId = this.playfabDeviceId.replace("-", "").toLowerCase();
+        this.fullConnectionId = this.connectionId + this.pmsgId;
+        this.formattedConnectionId = formatConnectionId(this.fullConnectionId);
+
         saveConnectionIdFile(connectionIdFile);
-        LOGGER.info("[NetherNet] Generated persistent 18-digit Connection ID: {}", this.connectionId);
+        LOGGER.info("[NetherNet] Active 50-char NetherNet Connection ID: {}", this.formattedConnectionId);
+    }
+
+    public static String formatConnectionId(String rawId) {
+        if (rawId == null || rawId.isBlank()) return rawId;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < rawId.length(); i++) {
+            if (i > 0 && i % 5 == 0) sb.append('-');
+            sb.append(rawId.charAt(i));
+        }
+        return sb.toString();
     }
 
     private void saveConnectionIdFile(File file) {
@@ -261,6 +292,8 @@ public final class EducationSessionBrokerService {
             Yaml yaml = new Yaml(options);
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("connection-id", this.connectionId);
+            data.put("playfab-custom-id", this.playfabCustomId);
+            data.put("playfab-device-id", this.playfabDeviceId);
             data.put("signaling-identity", this.signalingAccountIdentity);
             data.put("transport", "NetherNet-WebRTC-RakNet-Bridge");
             data.put("external-ip", config.getExternalAddress());
@@ -292,6 +325,8 @@ public final class EducationSessionBrokerService {
     }
 
     public String getConnectionId() { return connectionId; }
+    public String getFullConnectionId() { return fullConnectionId != null ? fullConnectionId : connectionId; }
+    public String getFormattedConnectionId() { return formattedConnectionId != null ? formattedConnectionId : formatConnectionId(connectionId); }
     public Map<String, TenantSessionRecord> getActiveTenantSessions() { return Collections.unmodifiableMap(activeTenantSessions); }
     public void stop() { if (signalingWebSocket != null) signalingWebSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Stopping"); }
 }`

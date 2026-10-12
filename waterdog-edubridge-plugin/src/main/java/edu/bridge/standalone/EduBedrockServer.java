@@ -151,12 +151,19 @@ public final class EduBedrockServer {
         LOGGER.info(" Listening on Bedrock Port: {}:{} (External: {})",
                 config.getBindHost(), config.getBindPort(), config.getExternalAddress());
         LOGGER.info(" Forwarding to PowerNukkitX: {}:{}", config.getDownstreamHost(), config.getDownstreamPort());
-        LOGGER.info(" Persistent NetherNet Connection ID: {}", this.sessionBroker.getConnectionId());
+        LOGGER.info("--------------------------------------------------------------------");
+        LOGGER.info(" MINECRAFT EDUCATION EDITION JOIN CODE:");
+        LOGGER.info(" Persistent NetherNet Connection ID (5-character block format):");
+        LOGGER.info(" >> {} <<", this.sessionBroker.getFormattedConnectionId());
+        LOGGER.info(" (Raw 50-char alphanumeric: {})", this.sessionBroker.getFullConnectionId());
+        LOGGER.info(" -> In M:EE: Click Play > Join World > click '...' button (bottom right) > Enter ID!");
+        LOGGER.info("--------------------------------------------------------------------");
         LOGGER.info(" Active 4-Picture Join Code: {} (Indices: {})",
                 activePictureCode, EducationSessionBrokerService.symbolsToNumericPasscode(activePictureCode));
         LOGGER.info(" Share Link: {}", this.sessionBroker.buildShareLink(activePictureCode));
-        LOGGER.info(" Allowed M365 Tenants: {}", config.getAllowedTenantIds());
-        LOGGER.info(" Tip: Type 'edu joincode add' to link an M365 account via Device Code");
+        LOGGER.info(" Note: 4-Picture codes query Microsoft Cloud Discovery & require school tenant.");
+        LOGGER.info(" Testing on the same Windows PC? Run loopback exempt in admin PowerShell:");
+        LOGGER.info(" CheckNetIsolation LoopbackExempt -a -n=Microsoft.MinecraftEducationEdition_8wekyb3d8bbwe");
         LOGGER.info("====================================================================");
     }
 

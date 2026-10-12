@@ -64,6 +64,11 @@ public final class EducationSessionBrokerService {
 
     private String connectionId;
     private String signalingAccountIdentity;
+    private String playfabCustomId;
+    private String playfabDeviceId;
+    private String pmsgId;
+    private String fullConnectionId;
+    private String formattedConnectionId;
     private WebSocket signalingWebSocket;
 
     // Stored tenant OAuth sessions (tenantId -> SessionRecord)
@@ -130,28 +135,161 @@ public final class EducationSessionBrokerService {
                 if (data != null && data.containsKey("connection-id")) {
                     this.connectionId = String.valueOf(data.get("connection-id"));
                     this.signalingAccountIdentity = String.valueOf(data.getOrDefault("signaling-identity", "edubridge-rpi4-host"));
+                    this.playfabCustomId = (String) data.get("playfab-custom-id");
+                    this.playfabDeviceId = (String) data.get("playfab-device-id");
                     LOGGER.info("[NetherNet] Loaded persistent Connection ID from nethernet/connection-id.yml: {}", this.connectionId);
-                    return;
                 }
             } catch (Exception e) {
                 LOGGER.warn("[NetherNet] Could not parse nethernet/connection-id.yml, generating a fresh ID: {}", e.getMessage());
             }
         }
 
-        // Check if configured in config.yml or generate a stable 18-digit unsigned numeric ID
-        String configuredId = config.getNetherNetConnectionId();
-        if (configuredId != null && !configuredId.isBlank() && !"AUTO".equalsIgnoreCase(configuredId)) {
-            this.connectionId = configuredId.trim();
-        } else {
-            SecureRandom random = new SecureRandom();
-            long raw = Math.abs(random.nextLong());
-            // Format as an 18-digit number (100000000000000000 to 999999999999999999)
-            this.connectionId = String.format("%018d", (raw % 900000000000000000L) + 100000000000000000L);
+        if (this.playfabCustomId == null || this.playfabCustomId.isBlank()) {
+            this.playfabCustomId = "MCPF" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
         }
-        this.signalingAccountIdentity = "edubridge-rpi4-" + this.connectionId.substring(0, 6);
+        if (this.playfabDeviceId == null || this.playfabDeviceId.isBlank()) {
+            this.playfabDeviceId = UUID.randomUUID().toString().replace("-", "").toLowerCase();
+        }
+
+        // Check if configured in config.yml or generate a stable 18-digit unsigned numeric ID
+        if (this.connectionId == null) {
+            String configuredId = config.getNetherNetConnectionId();
+            if (configuredId != null && !configuredId.isBlank() && !"AUTO".equalsIgnoreCase(configuredId)) {
+                this.connectionId = configuredId.trim();
+            } else {
+                SecureRandom random = new SecureRandom();
+                long raw = Math.abs(random.nextLong());
+                // Format as an 18-digit number (100000000000000000 to 999999999999999999)
+                this.connectionId = String.format("%018d", (raw % 900000000000000000L) + 100000000000000000L);
+            }
+            this.signalingAccountIdentity = "edubridge-rpi4-" + this.connectionId.substring(0, 6);
+        }
 
         saveConnectionIdFile(connectionIdFile);
-        LOGGER.info("[NetherNet] Generated persistent 18-digit Connection ID: {}", this.connectionId);
+
+        // Fetch PlayFab anonymous identity to obtain real 32-hex pmid claim for Education Edition 50-char ID
+        obtainPlayFabPmid();
+    }
+
+    /**
+     * Obtains anonymous PlayFab session ticket and queries Minecraft authorization service
+     * to extract the 32-character hexadecimal `pmid` claim.
+     * Combines this with the 18-digit numeric connection ID to form the 50-character
+     * NetherNet Connection ID expected by Minecraft: Education Edition.
+     */
+    private void obtainPlayFabPmid() {
+        try {
+            // 1. PlayFab LoginWithCustomID (TitleId: 6955F)
+            JsonObject loginBody = new JsonObject();
+            loginBody.addProperty("CreateAccount", true);
+            loginBody.addProperty("CustomId", this.playfabCustomId);
+            loginBody.addProperty("TitleId", "6955F");
+
+            HttpRequest loginReq = HttpRequest.newBuilder()
+                    .uri(URI.create("https://6955f.playfabapi.com/Client/LoginWithCustomID"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(loginBody.toString()))
+                    .timeout(Duration.ofSeconds(6))
+                    .build();
+
+            HttpResponse<String> loginResp = this.httpClient.send(loginReq, HttpResponse.BodyHandlers.ofString());
+            if (loginResp.statusCode() >= 400) {
+                fallbackPmid("PlayFab returned HTTP " + loginResp.statusCode());
+                return;
+            }
+
+            JsonObject loginJson = JsonParser.parseString(loginResp.body()).getAsJsonObject();
+            if (!loginJson.has("data") || !loginJson.getAsJsonObject("data").has("SessionTicket")) {
+                fallbackPmid("No SessionTicket in PlayFab response");
+                return;
+            }
+            String sessionTicket = loginJson.getAsJsonObject("data").get("SessionTicket").getAsString();
+
+            // 2. Minecraft Franchise authorization /api/v1.0/session/start
+            JsonObject device = new JsonObject();
+            device.addProperty("applicationType", "MinecraftPE");
+            device.addProperty("gameVersion", "1.21.10");
+            device.addProperty("id", this.playfabDeviceId);
+            device.addProperty("memory", "2147483647");
+            device.addProperty("platform", "Win32");
+            device.addProperty("playFabTitleId", "6955F");
+            device.addProperty("storePlatform", "uwp.store");
+            device.addProperty("type", "Win32");
+
+            JsonObject user = new JsonObject();
+            user.addProperty("language", "en");
+            user.addProperty("languageCode", "en-US");
+            user.addProperty("regionCode", "US");
+            user.addProperty("token", sessionTicket);
+            user.addProperty("tokenType", "PlayFab");
+
+            JsonObject startBody = new JsonObject();
+            startBody.add("device", device);
+            startBody.add("user", user);
+
+            HttpRequest startReq = HttpRequest.newBuilder()
+                    .uri(URI.create("https://authorization.franchise.minecraft-services.net/api/v1.0/session/start"))
+                    .header("Content-Type", "application/json")
+                    .header("User-Agent", "libhttpclient/1.0.0.0")
+                    .POST(HttpRequest.BodyPublishers.ofString(startBody.toString()))
+                    .timeout(Duration.ofSeconds(6))
+                    .build();
+
+            HttpResponse<String> startResp = this.httpClient.send(startReq, HttpResponse.BodyHandlers.ofString());
+            if (startResp.statusCode() >= 400) {
+                fallbackPmid("Franchise auth returned HTTP " + startResp.statusCode());
+                return;
+            }
+
+            JsonObject startJson = JsonParser.parseString(startResp.body()).getAsJsonObject();
+            if (!startJson.has("result") || !startJson.getAsJsonObject("result").has("authorizationHeader")) {
+                fallbackPmid("No authorizationHeader in session/start response");
+                return;
+            }
+
+            String authHeader = startJson.getAsJsonObject("result").get("authorizationHeader").getAsString();
+            String[] parts = authHeader.split(" ", 2);
+            if (parts.length >= 2) {
+                String jwt = parts[1];
+                String[] jwtParts = jwt.split("\\.");
+                if (jwtParts.length >= 2) {
+                    byte[] payloadBytes = Base64.getUrlDecoder().decode(jwtParts[1]);
+                    JsonObject claims = JsonParser.parseString(new String(payloadBytes, StandardCharsets.UTF_8)).getAsJsonObject();
+                    if (claims.has("pmid")) {
+                        this.pmsgId = claims.get("pmid").getAsString().replace("-", "").toLowerCase();
+                        assembleConnectionId();
+                        LOGGER.info("[NetherNet] Successfully acquired live PlayFab pmid claim: {}", this.pmsgId);
+                        return;
+                    }
+                }
+            }
+            fallbackPmid("No pmid claim found in JWT payload");
+        } catch (Exception e) {
+            fallbackPmid(e.getMessage());
+        }
+    }
+
+    private void fallbackPmid(String reason) {
+        LOGGER.warn("[NetherNet] PlayFab signaling claim notice ({}). Generating stable persistent identity hash.", reason);
+        this.pmsgId = this.playfabDeviceId.replace("-", "").toLowerCase();
+        assembleConnectionId();
+    }
+
+    private void assembleConnectionId() {
+        this.fullConnectionId = this.connectionId + (this.pmsgId != null ? this.pmsgId : "");
+        this.formattedConnectionId = formatConnectionId(this.fullConnectionId);
+    }
+
+    public static String formatConnectionId(String rawId) {
+        if (rawId == null || rawId.isBlank()) return rawId;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < rawId.length(); i++) {
+            if (i > 0 && i % 5 == 0) {
+                sb.append('-');
+            }
+            sb.append(rawId.charAt(i));
+        }
+        return sb.toString();
     }
 
     private void saveConnectionIdFile(File file) {
@@ -162,6 +300,8 @@ public final class EducationSessionBrokerService {
             Yaml yaml = new Yaml(options);
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("connection-id", this.connectionId);
+            data.put("playfab-custom-id", this.playfabCustomId);
+            data.put("playfab-device-id", this.playfabDeviceId);
             data.put("signaling-identity", this.signalingAccountIdentity);
             data.put("transport", "NetherNet-WebRTC-RakNet-Bridge");
             data.put("external-ip", config.getExternalAddress());
@@ -608,6 +748,14 @@ public final class EducationSessionBrokerService {
 
     public String getConnectionId() {
         return connectionId;
+    }
+
+    public String getFullConnectionId() {
+        return fullConnectionId != null ? fullConnectionId : connectionId;
+    }
+
+    public String getFormattedConnectionId() {
+        return formattedConnectionId != null ? formattedConnectionId : formatConnectionId(connectionId);
     }
 
     public Map<String, TenantSessionRecord> getActiveTenantSessions() {

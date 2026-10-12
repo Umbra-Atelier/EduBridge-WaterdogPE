@@ -1270,41 +1270,50 @@ waterdogpe-support=true`}
                   </div>
 
                   <div className="space-y-2">
-                    <div className="font-semibold text-[#F8FAFC]">Step 4: (Optional) Cloud Discovery Sign-in & AADSTS500011 Guide</div>
-                    <pre className="p-3 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] font-mono text-[#F59E0B] overflow-x-auto">
-{`# Optional: Only needed for WAN cloud signaling outside your home/LAN:
-edu joincode add
-
-# Terminal outputs:
-# 1. Open browser: https://login.microsoft.com/device
-# 2. Enter code:   E83YJVHE5
-# 3. Sign in with your school-assigned Microsoft 365 Education account`}
-                    </pre>
-                    <div className="p-3 bg-[#1C1917] border border-[#78350F] rounded text-[11px] space-y-1.5 text-[#FDE68A]">
-                      <div className="font-semibold flex items-center gap-1.5 text-[#FBBF24]">
-                        <Info className="w-3.5 h-3.5" />
-                        Troubleshooting AADSTS500011 ("Resource principal not found in tenant"):
+                    <div className="font-semibold text-[#F8FAFC]">Step 4: Understanding M:EE Join IDs, 4-Picture Codes & AADSTS500011</div>
+                    <div className="p-3.5 bg-[#0D131F] border border-[#1E293B] rounded text-[11px] space-y-2.5 text-[#94A3B8]">
+                      <div>
+                        <strong className="text-[#38BDF8]">1. Why Join IDs Look Like <code className="text-[#10B981]">17206-86172-23716-...</code>:</strong>
+                        <p className="mt-1">
+                          In Minecraft Education Edition, a real NetherNet Connection ID is a <strong>50 to 52-character alphanumeric string</strong> composed of an 18-digit host number (e.g. <code className="text-white">224215661245789839</code>) followed by a 32-character hexadecimal PlayFab peer ID (<code className="text-white">pmid</code>). When you click the <strong>...</strong> button in M:EE's Join World dialog, the game client automatically splits those characters into 5-character blocks with hyphens:
+                        </p>
+                        <code className="block p-1.5 mt-1 bg-[#020617] border border-[#1E293B] rounded text-[#38BDF8] font-mono">
+                          22421-56612-45789-8398e-1d19c-756ed-40264-089d8-161e7-1afae
+                        </code>
                       </div>
-                      <p className="text-[#FDE68A]/90">
-                        • <strong>Cause:</strong> You signed in with a personal Microsoft account (<code className="text-white">@gmail.com</code>, <code className="text-white">@outlook.com</code>) or an Azure tenant that has no Minecraft Education licenses. Personal accounts cannot access <code className="text-white">api.minecrafteduservices.com</code>.
-                      </p>
-                      <p className="text-[#FDE68A]/90">
-                        • <strong>Key Takeaway:</strong> You <strong>DO NOT</strong> need device login to join your server! The 18-digit NetherNet Connection ID and LAN discovery work independently of Microsoft cloud sign-in.
-                      </p>
+                      <div>
+                        <strong className="text-[#F59E0B]">2. Why 4-Picture Codes Failed with AADSTS500011:</strong>
+                        <p className="mt-1">
+                          4-Picture codes are <strong>not local</strong>! When a player clicks the 4 pictures, M:EE queries Microsoft's central cloud discovery servers (<code className="text-white">discovery.minecrafteduservices.com</code>). Because signing in to Microsoft device login failed with <code className="text-[#EF4444]">AADSTS500011</code> (which occurs when using a personal account or an M365 tenant lacking Minecraft Education licenses), the code was never registered in Microsoft's cloud database.
+                        </p>
+                      </div>
+                      <div>
+                        <strong className="text-[#A855F7]">3. How EduGeyser + Floodgate Works vs This Setup:</strong>
+                        <p className="mt-1">
+                          EduGeyser connects M:EE clients to a <strong>Java Edition server (Paper/Purpur)</strong> via native WebRTC NetherNet, using <strong>EduFloodgate</strong> to create virtual Java profiles so players don't need Java accounts. In contrast, <strong>PowerNukkitX is a Bedrock server</strong> that natively listens on UDP RakNet, without native WebRTC.
+                        </p>
+                      </div>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="font-semibold text-[#F8FAFC]">Step 5: Launch Minecraft: Education Edition & Join Directly</div>
+                    <div className="font-semibold text-[#F8FAFC]">Step 5: How to Connect to Your Server on LAN / PC</div>
                     <ul className="list-disc list-inside space-y-2 text-[11px]">
                       <li>
-                        <strong className="text-[#38BDF8]">Option 1 (Recommended — 18-Digit Connection ID):</strong> In Minecraft Education Edition, click <strong className="text-[#F8FAFC]">Play &rarr; Join World</strong>. Select the ID / Connection ID field and enter your 18-digit persistent ID (e.g. <code className="text-[#10B981] font-mono font-bold">224215661245789839</code>). This bypasses cloud broker checks and routes directly through the NetherNet proxy!
+                        <strong className="text-[#F59E0B]">Crucial Windows PC Fix (UWP Loopback Exemption):</strong> If Minecraft Education Edition and your server are running on the <strong>same Windows PC</strong>, Windows isolates UWP apps from <code className="text-[#38BDF8]">localhost / 127.0.0.1</code>! Run PowerShell as Administrator and execute:
+                        <pre className="p-2 mt-1.5 bg-[#020617] border border-[#1E293B] rounded text-[11px] font-mono text-[#10B981] overflow-x-auto">
+CheckNetIsolation LoopbackExempt -a -n=Microsoft.MinecraftEducationEdition_8wekyb3d8bbwe
+                        </pre>
+                        Once enabled, restart Minecraft Education Edition.
                       </li>
                       <li>
-                        <strong className="text-[#10B981]">Option 2 (LAN Discovery / Friends Tab):</strong> Click <strong className="text-[#F8FAFC]">Play &rarr; Friends tab &rarr; LAN Games</strong>. Because EduBedrockProxy answers RakNet pings on port 19132, <code className="text-[#10B981]">EduBedrock Classroom World</code> appears directly on your local network. Click to connect.
+                        <strong className="text-[#10B981]">Option A (LAN Discovery / Friends Tab):</strong> In M:EE, click <strong className="text-[#F8FAFC]">Play &rarr; Friends &rarr; LAN Games</strong>. Because EduBedrockProxy answers RakNet pings on port 19132, the world appears directly on your local network! (Works immediately from another PC, iPad, or Chromebook on the same Wi-Fi).
                       </li>
                       <li>
-                        <strong className="text-[#A855F7]">Option 3 (4-Picture Join Code on LAN):</strong> Click <strong className="text-[#F8FAFC]">Play &rarr; Join World</strong>, enter the active 4 picture symbols shown in your proxy console (e.g. <code className="text-[#E2E8F0] font-mono">[Potion, Book, Cookie, Apple]</code>), and click Join.
+                        <strong className="text-[#38BDF8]">Option B (Formatted Connection ID):</strong> In M:EE, click <strong className="text-[#F8FAFC]">Play &rarr; Join World &rarr; click '...' (bottom right)</strong>. Paste the full 50-character hyphenated ID printed in your proxy console:
+                        <pre className="p-2 mt-1.5 bg-[#020617] border border-[#1E293B] rounded text-[11px] font-mono text-[#38BDF8] overflow-x-auto">
+22421-56612-45789-8398e-1d19c-756ed-40264-089d8-161e7-1afae
+                        </pre>
                       </li>
                     </ul>
                   </div>
