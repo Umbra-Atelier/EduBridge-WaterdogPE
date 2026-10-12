@@ -152,18 +152,26 @@ public final class EduBedrockServer {
                 config.getBindHost(), config.getBindPort(), config.getExternalAddress());
         LOGGER.info(" Forwarding to PowerNukkitX: {}:{}", config.getDownstreamHost(), config.getDownstreamPort());
         LOGGER.info("--------------------------------------------------------------------");
-        LOGGER.info(" MINECRAFT EDUCATION EDITION JOIN CODE:");
+        LOGGER.info(" MINECRAFT EDUCATION EDITION JOIN INFO:");
         LOGGER.info(" Persistent NetherNet Connection ID (5-character block format):");
         LOGGER.info(" >> {} <<", this.sessionBroker.getFormattedConnectionId());
         LOGGER.info(" (Raw 50-char alphanumeric: {})", this.sessionBroker.getFullConnectionId());
         LOGGER.info(" -> In M:EE: Click Play > Join World > click '...' button (bottom right) > Enter ID!");
         LOGGER.info("--------------------------------------------------------------------");
-        LOGGER.info(" Active 4-Picture Join Code: {} (Indices: {})",
-                activePictureCode, EducationSessionBrokerService.symbolsToNumericPasscode(activePictureCode));
-        LOGGER.info(" Share Link: {}", this.sessionBroker.buildShareLink(activePictureCode));
-        LOGGER.info(" Note: 4-Picture codes query Microsoft Cloud Discovery & require school tenant.");
+        if (!this.sessionBroker.getActiveTenantSessions().isEmpty()) {
+            for (EducationSessionBrokerService.TenantSessionRecord rec : this.sessionBroker.getActiveTenantSessions().values()) {
+                LOGGER.info(" Official 4-Picture Join Code: {} (Passcode: {})", rec.joinCode(), rec.passcode());
+                LOGGER.info(" Linked M365 School Account:  {} (Tenant: {})", rec.accountUpn(), rec.tenantId());
+                LOGGER.info(" Classroom Share Link:        {}", rec.shareLink());
+            }
+        } else {
+            LOGGER.info(" Active 4-Picture Join Code: {} (Indices: {})",
+                    activePictureCode, EducationSessionBrokerService.symbolsToNumericPasscode(activePictureCode));
+            LOGGER.info(" Share Link: {}", this.sessionBroker.buildShareLink(activePictureCode));
+            LOGGER.info(" Note: To register a real join code with Microsoft Cloud Discovery, type 'edu joincode add'");
+        }
         LOGGER.info(" Testing on the same Windows PC? Run loopback exempt in admin PowerShell:");
-        LOGGER.info(" CheckNetIsolation LoopbackExempt -a -n=Microsoft.MinecraftEducationEdition_8wekyb3d8bbwe");
+        LOGGER.info(" CheckNetIsolation LoopbackExempt -a \"-n=Microsoft.MinecraftEducationEdition_8wekyb3d8bbwe\"");
         LOGGER.info("====================================================================");
     }
 

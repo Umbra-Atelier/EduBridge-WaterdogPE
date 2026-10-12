@@ -105,9 +105,9 @@ public final class EduBedrockProxy {
                 LOGGER.info(" NetherNet Connection ID: {}", broker.getConnectionId());
                 for (Map.Entry<String, EducationSessionBrokerService.TenantSessionRecord> entry : broker.getActiveTenantSessions().entrySet()) {
                     EducationSessionBrokerService.TenantSessionRecord rec = entry.getValue();
-                    LOGGER.info(" Tenant:     {}", rec.tenantId());
-                    LOGGER.info(" 4-Picture:  {} (Passcode indices: {})",
-                            rec.joinCode(), EducationSessionBrokerService.symbolsToNumericPasscode(rec.joinCode()));
+                    LOGGER.info(" Tenant:     {} ({})", rec.tenantId(), rec.accountUpn());
+                    LOGGER.info(" 4-Picture:  {} (Passcode: {})",
+                            rec.joinCode(), rec.passcode() != null ? rec.passcode() : EducationSessionBrokerService.symbolsToNumericPasscode(rec.joinCode()));
                     LOGGER.info(" Share Link: {}", rec.shareLink());
                 }
                 LOGGER.info("====================================================================");
