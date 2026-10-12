@@ -2,5 +2,7 @@
   "name": "EduBridge-WaterdogPE",
   "description": "Native Microsoft 365 & Minecraft Education Edition Authentication Bridge Plugin for WaterdogPE and PowerNukkitX on Raspberry Pi 4.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
