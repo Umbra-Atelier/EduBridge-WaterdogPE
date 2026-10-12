@@ -1,9 +1,12 @@
-name: Build EduBridge Plugin
+name: Build and Release EduBedrockProxy
 
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -24,21 +27,27 @@ jobs:
 
       - name: Build with Gradle
         run: |
-          # Checks if build.gradle.kts is in root or in a subfolder
           if [ -f "build.gradle.kts" ]; then
-            gradle build
+            gradle shadowJar
           elif [ -f "waterdog-edubridge-plugin/build.gradle.kts" ]; then
             cd waterdog-edubridge-plugin
-            gradle build
+            gradle shadowJar
           else
             echo "Gradle build file not found!"
             exit 1
           fi
 
-      - name: Upload Compiled Jar Artifact
-        uses: actions/upload-artifact@v4
+      - name: Find Built Jar
+        id: find_jar
+        run: |
+          JAR_PATH=$(find . -name "EduBedrockProxy-*.jar" | head -n 1)
+          echo "jar_path=$JAR_PATH" >> $GITHUB_OUTPUT
+          echo "Found jar at: $JAR_PATH"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: WaterdogPE-EduBridge-Jar
-          path: |
-            build/libs/*.jar
-            **/build/libs/*.jar
+          tag_name: v2.0.0-${{ github.run_number }}
+          name: "EduBedrockProxy v2.0.0 (Custom Build)"
+          files: ${{ steps.find_jar.outputs.jar_path }}
+          body: "Automated build featuring full RakNet Ping/Pong state machine and M365 Education validation."
