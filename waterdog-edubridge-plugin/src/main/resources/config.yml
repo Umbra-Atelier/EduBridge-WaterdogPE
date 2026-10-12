@@ -1,52 +1,46 @@
 # ============================================================================
-# EduBridge-WaterdogPE Configuration (Raspberry Pi 4 Low-Resource Profile)
-# Bridges Minecraft Education Edition (M365 Tenant Auth) -> PowerNukkitX
+# EduBedrockProxy Configuration (Raspberry Pi 4 Native Stack)
+# Bridges Minecraft: Education Edition (M365 Entra ID) -> PowerNukkitX (:19133)
 # ============================================================================
 
-# 1. Microsoft 365 / Entra ID Tenant Settings
+# 1. Front-facing Bedrock / RakNet Proxy Listener (Port 19132)
+proxy-listener:
+  host: "0.0.0.0"
+  port: 19132
+  motd: "§bOakridge School §7- §aMinecraft Education Edition"
+  sub_motd: "§fM365 Authenticated Classroom Server"
+
+# 2. Downstream PowerNukkitX Native Bedrock Server (Port 19133)
+downstream-pnx:
+  host: "127.0.0.1"
+  port: 19133
+  target-server-name: "lobby"
+  # Injects signed extraData Bedrock JWT containing verified M365 attributes
+  inject-signed-extradata: true
+
+# 3. Microsoft 365 / Entra ID Tenant Settings
 m365-auth:
-  # Require cryptographic verification against Microsoft's OpenID Connect JWKS endpoint
   verify-jwt-signature: true
-  # Discovery endpoint template ({tenant} is replaced with the student's tid claim)
   jwks-uri-template: "https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys"
-  # Allowed School / Organization Tenant UUIDs (Azure AD 'tid' claim)
   allowed-tenant-ids:
     - "84c31ca0-ac3b-4eae-ad11-519d80233e6f"
     - "f8cdef31-a31e-4b4a-93e4-5f571e91255a"
-  # Allowed email domains (UPN suffix check)
   allowed-domains:
     - "students.oakridge.edu"
     - "faculty.oakridge.edu"
-  # Also allow standard retail Xbox Live accounts alongside Education Edition accounts?
-  allow-hybrid-retail-xbox: true
-  # Deterministic XUID generation salt (ensures M365 Object IDs map to unique 16-digit XUIDs)
-  xuid-hash-salt: "edubridge-rpi4-pnx-salt-2026"
-
-# 2. Classroom Join Code Gatekeeper (Replaces EduGeyser Join Codes)
-classroom-join-code:
-  enabled: true
-  # Symbolic or alphanumeric code required when joining for the first time in a session
-  active-code: "BOOK-APPLE-PANDA-RAIL"
-  # Cache verified student OIDs so they don't re-enter the code on server transfer
-  session-ttl-minutes: 180
-  prompt-title: "Minecraft Education Classroom"
-  prompt-subtitle: "Enter your teacher's 4-word Join Code to connect to PowerNukkitX:"
-
-# 3. Downstream PowerNukkitX Forwarding (Port 19133)
-downstream-pnx:
-  target-server-name: "lobby"
-  host: "127.0.0.1"
-  port: 19133
-  # Inject verified M365 claims into WaterdogPE extraData JsonObject and re-sign JWT chain
-  inject-signed-extradata: true
-  # Map M365 Entra Directory roles or faculty domain to edu_role="teacher"
   teacher-domains:
     - "faculty.oakridge.edu"
+  allow-hybrid-retail-xbox: true
+  xuid-hash-salt: "edubridge-rpi4-pnx-salt-2026"
 
-# 4. Raspberry Pi 4 (ARM64 Cortex-A72) Performance & Memory Tuning
+# 4. Classroom Join Code Gatekeeper (Replaces EduGeyser Join Codes)
+classroom-join-code:
+  enabled: true
+  active-code: "BOOK-APPLE-PANDA-RAIL"
+  session-ttl-minutes: 180
+
+# 5. Raspberry Pi 4 (ARM64 Cortex-A72) Performance Tuning
 hardware-tuning:
-  # Restrict async JWKS/OIDC verification worker threads (optimal = 2 for 4-core RPi 4)
   async-verifier-threads: 2
-  # Maximum cached M365 public keys and verified token fingerprints
   max-token-cache-entries: 256
   jwks-cache-hours: 24

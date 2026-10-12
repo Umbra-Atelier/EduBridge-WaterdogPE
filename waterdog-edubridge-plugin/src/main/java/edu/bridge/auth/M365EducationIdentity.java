@@ -1,11 +1,9 @@
-package edu.waterdog.bridge.auth;
+package edu.bridge.auth;
 
 import java.util.UUID;
 
 /**
- * Immutable record representing a verified Microsoft 365 Education Edition session.
- * These claims are injected into WaterdogPE's extraData JsonObject and re-signed
- * for downstream verification on PowerNukkitX (port 19133).
+ * Immutable representation of a verified Microsoft 365 Education Edition identity.
  */
 public record M365EducationIdentity(
         String tenantId,

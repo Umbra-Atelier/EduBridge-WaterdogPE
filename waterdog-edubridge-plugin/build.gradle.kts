@@ -1,54 +1,39 @@
 plugins {
     id("java")
-    id("java-library")
     id("com.gradleup.shadow") version "8.3.5"
 }
 
-group = "edu.waterdog.bridge"
-version = "1.2.0-RPi4"
-description = "Native Microsoft 365 & Minecraft Education Edition Authentication Bridge for WaterdogPE -> PowerNukkitX"
+group = "edu.bridge"
+version = "2.0.0-CustomBuild"
+description = "Native Bedrock & M365 Education Edition Proxy Bridge for Raspberry Pi 4 (PowerNukkitX :19133)"
 
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
     }
-    withSourcesJar()
 }
 
 repositories {
     mavenCentral()
-    maven("https://repo.waterdog.dev/main") {
-        name = "waterdog-repo"
-    }
-    maven("https://repo.waterdog.dev/snapshots") {
-        name = "waterdog-snapshots"
-    }
-    maven("https://repo.opencollab.dev/maven-releases/") {
-        name = "opencollab-releases"
-    }
-    maven("https://repo.opencollab.dev/maven-snapshots/") {
-        name = "opencollab-snapshots"
-    }
 }
 
 dependencies {
-    // WaterdogPE Proxy API (Provided at runtime by the proxy jar on port 19132)
-    compileOnly("dev.waterdog.waterdogpe:waterdog:2.0.4-SNAPSHOT")
+    // High-performance Netty 4.1 networking (used for UDP RakNet/Bedrock framing & pipeline interception)
+    implementation("io.netty:netty-all:4.1.100.Final")
 
-    // Cloudburst Protocol (Bedrock RakNet & LoginPacket / ModalFormRequestPacket definitions)
-    compileOnly("org.cloudburstmc.protocol:bedrock-codec:3.0.0.Beta2-SNAPSHOT")
-    compileOnly("org.cloudburstmc.protocol:bedrock-connection:3.0.0.Beta2-SNAPSHOT")
-
-    // Nimbus JOSE + JWT for lightweight Microsoft 365 Entra ID (Azure AD) OIDC & JWKS validation
-    // Shaded into plugin jar; minimal memory footprint for Raspberry Pi 4 ARM64
+    // Cryptographic validation of Microsoft 365 Entra ID (Azure AD) OIDC & JWKS tokens
     implementation("com.nimbusds:nimbus-jose-jwt:9.41.2")
 
-    // Caffeine for bounded, non-blocking JWKS and session token caching on 4-core Cortex-A72
+    // High-performance, bounded caching for Microsoft JWKS keys on Raspberry Pi 4 Cortex-A72
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
 
-    // Gson & SnakeYAML (Provided by WaterdogPE runtime)
-    compileOnly("com.google.code.gson:gson:2.10.1")
-    compileOnly("org.yaml:snakeyaml:2.2")
+    // JSON and YAML configuration parsing
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("org.yaml:snakeyaml:2.2")
+
+    // SLF4J / Logging
+    implementation("org.slf4j:slf4j-api:2.0.12")
+    implementation("org.slf4j:slf4j-simple:2.0.12")
 }
 
 tasks {
@@ -57,20 +42,18 @@ tasks {
         options.release.set(17)
     }
 
-    processResources {
-        filteringCharset = Charsets.UTF_8.name()
-        filesMatching("plugin.yml") {
-            expand("version" to project.version)
-        }
-    }
-
     shadowJar {
-        archiveBaseName.set("WaterdogPE-EduBridge")
+        archiveBaseName.set("EduBedrockProxy")
         archiveClassifier.set("")
-        // Relocate shaded crypto/JWT dependencies to avoid conflicts with other WaterdogPE plugins
-        relocate("com.nimbusds", "edu.waterdog.bridge.shaded.nimbusds")
-        relocate("com.github.benmanes.caffeine", "edu.waterdog.bridge.shaded.caffeine")
-        minimize()
+
+        manifest {
+            // Can be executed standalone: java -jar EduBedrockProxy.jar
+            attributes["Main-Class"] = "edu.bridge.standalone.EduBedrockProxy"
+            // Can also be attached as a JavaAgent to WaterdogPE to intercept Netty pipelines: -javaagent:EduBedrockProxy.jar
+            attributes["Premain-Class"] = "edu.bridge.agent.WaterdogNettyAgent"
+            attributes["Can-Redefine-Classes"] = "true"
+            attributes["Can-Retransform-Classes"] = "true"
+        }
     }
 
     build {

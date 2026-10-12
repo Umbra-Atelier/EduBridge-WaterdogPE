@@ -1,1 +1,1 @@
-rootProject.name = "waterdog-edubridge-plugin"
+rootProject.name = "EduBedrockProxy"

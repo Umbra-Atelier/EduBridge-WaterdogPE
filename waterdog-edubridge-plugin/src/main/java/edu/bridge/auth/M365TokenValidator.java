@@ -1,4 +1,4 @@
-package edu.waterdog.bridge.auth;
+package edu.bridge.auth;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -13,8 +13,8 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
-import edu.waterdog.bridge.config.EduBridgeConfig;
-import org.apache.logging.log4j.Logger;
+import edu.bridge.config.EduBridgeConfig;
+import org.slf4j.Logger;
 
 import java.net.URI;
 import java.time.Instant;
@@ -27,25 +27,20 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Validates Microsoft 365 / Entra ID (Azure AD) JWT tokens carried by
- * Minecraft Education Edition clients during the Bedrock LoginPacket handshake.
- *
- * Uses bounded Caffeine caches so JWKS public keys are fetched at most once per
- * 24 hours per school tenant, keeping CPU and RAM overhead minimal on Raspberry Pi 4.
+ * Validates Microsoft 365 / Entra ID (Azure AD) RS256 JWT tokens
+ * against Microsoft's OpenID Connect JWKS endpoint.
  */
-public final class M365JwksVerifier {
+public final class M365TokenValidator {
 
     private final EduBridgeConfig config;
     private final XuidSynthesizer xuidSynthesizer;
     private final ExecutorService executor;
     private final Logger logger;
 
-    // Cache RemoteJWKSet per Tenant UUID
     private final Cache<String, JWKSource<SecurityContext>> tenantJwksCache;
-    // Cache already-verified token signatures by SHA-256 / raw JWT snippet
     private final Cache<String, M365EducationIdentity> verifiedTokenCache;
 
-    public M365JwksVerifier(
+    public M365TokenValidator(
             EduBridgeConfig config,
             XuidSynthesizer xuidSynthesizer,
             ExecutorService executor,
@@ -58,25 +53,19 @@ public final class M365JwksVerifier {
 
         this.tenantJwksCache = Caffeine.newBuilder()
                 .maximumSize(32)
-                .expireAfterWrite(config.getJwksCacheHours(), TimeUnit.HOURS)
+                .expireAfterWrite(24, TimeUnit.HOURS)
                 .build();
 
         this.verifiedTokenCache = Caffeine.newBuilder()
-                .maximumSize(config.getMaxTokenCacheEntries())
+                .maximumSize(512)
                 .expireAfterWrite(45, TimeUnit.MINUTES)
                 .build();
     }
 
-    /**
-     * Asynchronously validates an M365 JWT token string on the RPi4 bounded thread pool.
-     */
     public CompletableFuture<Optional<M365EducationIdentity>> verifyTokenAsync(String rawJwt) {
         return CompletableFuture.supplyAsync(() -> verifyTokenSync(rawJwt), this.executor);
     }
 
-    /**
-     * Synchronously parses and validates the M365 JWT token against the allowed school tenants.
-     */
     public Optional<M365EducationIdentity> verifyTokenSync(String rawJwt) {
         if (rawJwt == null || rawJwt.isBlank()) {
             return Optional.empty();
@@ -91,7 +80,6 @@ public final class M365JwksVerifier {
             SignedJWT signedJWT = SignedJWT.parse(rawJwt);
             JWTClaimsSet unverifiedClaims = signedJWT.getJWTClaimsSet();
 
-            // 1. Extract Microsoft 365 Tenant ID ('tid') & Object ID ('oid' or 'sub')
             String tenantId = firstNonBlank(
                     unverifiedClaims.getStringClaim("tid"),
                     unverifiedClaims.getStringClaim("tenantId")
@@ -112,34 +100,35 @@ public final class M365JwksVerifier {
             );
 
             if (tenantId == null || objectId == null) {
-                logger.debug("[EduBridge] JWT does not contain M365 'tid' or 'oid' claims.");
                 return Optional.empty();
             }
 
-            // 2. Verify Tenant ID against school whitelist in config.yml
             if (!config.getAllowedTenantIds().isEmpty() && !config.getAllowedTenantIds().contains(tenantId)) {
-                logger.warn("[EduBridge] Rejected login from unauthorized M365 Tenant ID: " + tenantId);
+                if (logger != null) {
+                    logger.warn("[EduBridge] Rejected login from unauthorized M365 Tenant ID: {}", tenantId);
+                }
                 return Optional.empty();
             }
 
-            // 3. Verify UPN domain suffix if configured
             if (upn != null && upn.contains("@") && !config.getAllowedDomains().isEmpty()) {
                 String domain = upn.substring(upn.indexOf('@') + 1).toLowerCase();
                 if (!config.getAllowedDomains().contains(domain)) {
-                    logger.warn("[EduBridge] Rejected M365 login from unauthorized email domain: " + domain);
+                    if (logger != null) {
+                        logger.warn("[EduBridge] Rejected login from unauthorized domain: {}", domain);
+                    }
                     return Optional.empty();
                 }
             }
 
-            // 4. Verify Token Expiration
             Date exp = unverifiedClaims.getExpirationTime();
             long expEpoch = exp != null ? exp.toInstant().getEpochSecond() : Instant.now().plusSeconds(3600).getEpochSecond();
             if (exp != null && exp.before(new Date())) {
-                logger.warn("[EduBridge] Rejected expired M365 Education token for UPN: " + upn);
+                if (logger != null) {
+                    logger.warn("[EduBridge] Expired M365 token for {}", upn);
+                }
                 return Optional.empty();
             }
 
-            // 5. Cryptographic RSA/ECDSA Signature Check against Microsoft OpenID JWKS
             if (config.isVerifyJwtSignature()) {
                 JWKSource<SecurityContext> keySource = tenantJwksCache.get(tenantId, this::createRemoteJwkSource);
                 ConfigurableJWTProcessor<SecurityContext> jwtProcessor = new DefaultJWTProcessor<>();
@@ -151,7 +140,6 @@ public final class M365JwksVerifier {
                 jwtProcessor.process(signedJWT, null);
             }
 
-            // 6. Determine Education Role (Teacher vs Student)
             String eduRole = resolveEduRole(unverifiedClaims, upn);
             String synthesizedXuid = xuidSynthesizer.deriveEducationXuid(tenantId, objectId);
             UUID synthesizedUuid = xuidSynthesizer.deriveEducationUuid(tenantId, objectId);
@@ -172,7 +160,9 @@ public final class M365JwksVerifier {
             return Optional.of(identity);
 
         } catch (Exception e) {
-            logger.warn("[EduBridge] M365 JWT verification failed: " + e.getMessage());
+            if (logger != null) {
+                logger.warn("[EduBridge] M365 JWT verification failed: {}", e.getMessage());
+            }
             return Optional.empty();
         }
     }
@@ -180,7 +170,6 @@ public final class M365JwksVerifier {
     private JWKSource<SecurityContext> createRemoteJwkSource(String tenantId) {
         try {
             String uri = config.getJwksUriTemplate().replace("{tenant}", tenantId);
-            // Low timeouts (2500ms) so network hiccups never stall RPi4 threads
             DefaultResourceRetriever retriever = new DefaultResourceRetriever(2500, 2500, 512 * 1024);
             return new RemoteJWKSet<>(URI.create(uri).toURL(), retriever);
         } catch (Exception e) {

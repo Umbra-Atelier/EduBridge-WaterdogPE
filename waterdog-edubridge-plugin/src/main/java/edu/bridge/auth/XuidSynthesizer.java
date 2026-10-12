@@ -1,4 +1,4 @@
-package edu.waterdog.bridge.auth;
+package edu.bridge.auth;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -6,14 +6,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 
 /**
- * Synthesizes a deterministic 16-digit numeric Xbox Live XUID and UUIDv5
- * from a Microsoft 365 Entra ID (Azure AD) Object ID ('oid') and Tenant ID ('tid').
+ * Derives a deterministic 16-digit numeric Xbox Live XUID (29xxxxxxxxxxxxxx) and UUIDv3
+ * from an M365 Entra ID (Azure AD) Object ID ('oid') and Tenant ID ('tid').
  *
- * Why this is critical for PowerNukkitX:
- * Standard Education Edition M365 logins lack a retail Xbox Live Gamertag XUID or
- * provide a tenant-scoped subject identifier. PowerNukkitX relies on a consistent
- * 64-bit unsigned numeric string XUID and UUID to persist player inventories and
- * permissions without collisions.
+ * Essential for PowerNukkitX because Bedrock servers key player savegames and inventories
+ * on a persistent 64-bit unsigned numeric XUID string.
  */
 public final class XuidSynthesizer {
 
@@ -23,10 +20,6 @@ public final class XuidSynthesizer {
         this.salt = salt != null ? salt : "edubridge-default-salt";
     }
 
-    /**
-     * Generates a deterministic 16-digit numeric XUID starting with '29' (Education range)
-     * from the M365 Tenant ID and User Object ID.
-     */
     public String deriveEducationXuid(String tenantId, String objectId) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -44,17 +37,11 @@ public final class XuidSynthesizer {
         }
     }
 
-    /**
-     * Generates a deterministic offline-safe UUIDv3/v5 from the M365 identity.
-     */
     public UUID deriveEducationUuid(String tenantId, String objectId) {
         String seed = "urn:m365:mc-edu:" + tenantId.toLowerCase() + ":" + objectId.toLowerCase();
         return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
 
-    /**
-     * Sanitizes an M365 displayName or UPN prefix into a valid Bedrock username (max 16 chars).
-     */
     public String sanitizeBedrockUsername(String displayName, String upn) {
         String candidate = (displayName != null && !displayName.isBlank())
                 ? displayName
